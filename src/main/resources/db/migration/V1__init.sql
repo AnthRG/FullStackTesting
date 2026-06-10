@@ -1,0 +1,2 @@
+-- Migración inicial (placeholder para que Flyway tenga un baseline).
+-- Agrega aquí las tablas del proyecto en futuras migraciones (V2__, V3__, ...).

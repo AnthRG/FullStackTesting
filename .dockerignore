@@ -1,0 +1,11 @@
+frontend
+build
+.gradle
+.git
+.env
+.env.*
+!.env.example
+*.md
+Dockerfile
+docker-compose.yml
+.dockerignore
