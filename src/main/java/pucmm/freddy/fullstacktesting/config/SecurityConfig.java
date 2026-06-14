@@ -25,6 +25,8 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         // permite el render de errores (si no, un 404/500 se enmascara como 403)
                         .requestMatchers("/error").permitAll()
+                        // documentacion OpenAPI / Swagger UI
+                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         // TODO: temporal. Proteger con hasRole('VIEW_ROLES') (GET) y
                         // hasRole('EDIT_ROLES') (POST/DELETE) cuando se active el Resource Server.
                         .requestMatchers("/api/admin/**").permitAll()
