@@ -1,0 +1,64 @@
+{
+  "realm": "fullstacktesting",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "accessTokenLifespan": 300,
+  "roles": {
+    "realm": [
+      { "name": "VIEW_ROLES", "description": "Puede ver los roles de los usuarios" },
+      { "name": "EDIT_ROLES", "description": "Puede editar/remover los roles de los usuarios" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "frontend",
+      "name": "Frontend SPA (Vite/React)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "fullScopeAllowed": true,
+      "redirectUris": ["http://localhost:5173/*", "http://localhost:3000/*"],
+      "webOrigins": ["http://localhost:5173", "http://localhost:3000"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5173/*##http://localhost:3000/*"
+      }
+    }
+  ],
+  "users": [
+    {
+      "username": "admin",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "admin@example.com",
+      "firstName": "Admin",
+      "lastName": "User",
+      "credentials": [{ "type": "password", "value": "admin", "temporary": false }],
+      "realmRoles": ["VIEW_ROLES", "EDIT_ROLES"]
+    },
+    {
+      "username": "user1",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "user1@example.com",
+      "firstName": "User",
+      "lastName": "Uno",
+      "credentials": [{ "type": "password", "value": "user1", "temporary": false }],
+      "realmRoles": ["VIEW_ROLES"]
+    },
+    {
+      "username": "user2",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "user2@example.com",
+      "firstName": "User",
+      "lastName": "Dos",
+      "credentials": [{ "type": "password", "value": "user2", "temporary": false }],
+      "realmRoles": []
+    }
+  ]
+}
