@@ -23,6 +23,11 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        // permite el render de errores (si no, un 404/500 se enmascara como 403)
+                        .requestMatchers("/error").permitAll()
+                        // TODO: temporal. Proteger con hasRole('VIEW_ROLES') (GET) y
+                        // hasRole('EDIT_ROLES') (POST/DELETE) cuando se active el Resource Server.
+                        .requestMatchers("/api/admin/**").permitAll()
                         .anyRequest().authenticated());
         return http.build();
     }
