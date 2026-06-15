@@ -7,8 +7,10 @@
   "accessTokenLifespan": 300,
   "roles": {
     "realm": [
-      { "name": "VIEW_ROLES", "description": "Puede ver los roles de los usuarios" },
-      { "name": "EDIT_ROLES", "description": "Puede editar/remover los roles de los usuarios" }
+      { "name": "VIEW_ROLES",     "description": "Puede ver los roles de los usuarios" },
+      { "name": "EDIT_ROLES",     "description": "Puede editar/remover los roles de los usuarios" },
+      { "name": "product:view",   "description": "Ver productos del inventario" },
+      { "name": "product:manage", "description": "Crear, editar y eliminar productos" }
     ]
   },
   "clients": [
@@ -38,7 +40,7 @@
       "firstName": "Admin",
       "lastName": "User",
       "credentials": [{ "type": "password", "value": "admin", "temporary": false }],
-      "realmRoles": ["VIEW_ROLES", "EDIT_ROLES"]
+      "realmRoles": ["VIEW_ROLES", "EDIT_ROLES", "product:view", "product:manage"]
     },
     {
       "username": "user1",
@@ -48,7 +50,7 @@
       "firstName": "User",
       "lastName": "Uno",
       "credentials": [{ "type": "password", "value": "user1", "temporary": false }],
-      "realmRoles": ["VIEW_ROLES"]
+      "realmRoles": ["VIEW_ROLES", "product:view"]
     },
     {
       "username": "user2",
