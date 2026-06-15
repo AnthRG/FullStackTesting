@@ -52,6 +52,8 @@ services:
       # jwk-set = URL interna de la red "spring" para descargar las llaves (keycloak:8080)
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-http://localhost:8081/realms/fullstacktesting}
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://keycloak:8080/realms/fullstacktesting/protocol/openid-connect/certs}
+      # Login: endpoint de token de Keycloak por la red interna
+      KEYCLOAK_LOGIN_TOKEN_URI: ${KEYCLOAK_LOGIN_TOKEN_URI:-http://keycloak:8080/realms/fullstacktesting/protocol/openid-connect/token}
       # Admin API de Keycloak (red interna). El backend administra usuarios/roles.
       KEYCLOAK_ADMIN_SERVER_URL: ${KEYCLOAK_ADMIN_SERVER_URL:-http://keycloak:8080}
       KEYCLOAK_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
