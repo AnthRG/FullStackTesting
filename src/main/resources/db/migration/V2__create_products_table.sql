@@ -3,11 +3,11 @@ CREATE TABLE products (
     name          VARCHAR(150)   NOT NULL,
     sku           VARCHAR(50)    NOT NULL UNIQUE,
     description   TEXT,
-    category      VARCHAR(100)   NOT NULL,
+    category      VARCHAR(50) NULL,
     price         NUMERIC(12, 2) NOT NULL,
     quantity      INTEGER        NOT NULL DEFAULT 0,
     minimum_stock INTEGER        NOT NULL DEFAULT 0,
-    status        VARCHAR(10)    NOT NULL DEFAULT 'ACTIVE',
+    status        VARCHAR(30)NOT NULL DEFAULT 'ACTIVE',
     created_at    TIMESTAMP      NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMP      NOT NULL DEFAULT NOW(),
 
