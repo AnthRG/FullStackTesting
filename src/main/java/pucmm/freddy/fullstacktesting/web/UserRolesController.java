@@ -2,6 +2,8 @@ package pucmm.freddy.fullstacktesting.web;
 
 import java.util.List;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,6 +34,8 @@ import pucmm.freddy.fullstacktesting.service.KeycloakAdminClient;
  */
 @RestController
 @RequestMapping("/api/admin")
+@Tag(name = "Admin · Roles de usuario",
+        description = "Consulta y edicion de los roles de los usuarios en Keycloak")
 public class UserRolesController {
 
     private final KeycloakAdminClient keycloak;
@@ -45,6 +49,7 @@ public class UserRolesController {
      *
      * @return usuarios con sus roles de realm
      */
+    @Operation(summary = "Lista los usuarios con sus roles")
     @GetMapping("/users")
     public List<UserRolesView> listUsers() {
         return keycloak.listUsers();
@@ -56,6 +61,7 @@ public class UserRolesController {
      * @param id id del usuario en Keycloak
      * @return el usuario; {@code 404} si no existe
      */
+    @Operation(summary = "Obtiene un usuario y sus roles")
     @GetMapping("/users/{id}")
     public UserRolesView getUser(@PathVariable String id) {
         return keycloak.getUser(id);
@@ -66,6 +72,7 @@ public class UserRolesController {
      *
      * @return roles asignables
      */
+    @Operation(summary = "Lista los roles asignables")
     @GetMapping("/roles")
     public List<RoleView> listRoles() {
         return keycloak.assignableRoles();
@@ -77,6 +84,7 @@ public class UserRolesController {
      * @param id   id del usuario
      * @param role nombre del rol (ej. {@code VIEW_ROLES}); {@code 404} si el rol no existe
      */
+    @Operation(summary = "Asigna un rol a un usuario")
     @PostMapping("/users/{id}/roles/{role}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void assignRole(@PathVariable String id, @PathVariable String role) {
@@ -89,6 +97,7 @@ public class UserRolesController {
      * @param id   id del usuario
      * @param role nombre del rol a remover; {@code 404} si el rol no existe
      */
+    @Operation(summary = "Quita un rol a un usuario")
     @DeleteMapping("/users/{id}/roles/{role}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void removeRole(@PathVariable String id, @PathVariable String role) {

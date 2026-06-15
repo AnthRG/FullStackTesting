@@ -30,6 +30,8 @@ public class SecurityConfig {
                         .requestMatchers("/error").permitAll()
                         // login: punto de entrada publico (entrega el token)
                         .requestMatchers("/api/auth/login").permitAll()
+                        // documentacion OpenAPI / Swagger UI
+                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         // TODO: temporal. Proteger con hasRole('VIEW_ROLES') (GET) y
                         // hasRole('EDIT_ROLES') (POST/DELETE).
                         .requestMatchers("/api/admin/**").permitAll()
