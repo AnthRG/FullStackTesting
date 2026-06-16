@@ -1,0 +1,137 @@
+# Pipeline de CI (Integracion Continua) para FullStackTesting.
+#
+# Que hace: en cada Pull Request hacia "main" (y en cada push a "main") corre
+# todos los tests. Combinado con la "branch protection rule" de GitHub, un PR
+# NO se puede mergear si alguno de estos jobs falla.
+#
+# Tiene dos jobs independientes que corren en paralelo:
+#   - backend-tests: levanta Postgres + Keycloak (docker compose) y corre los
+#     tests de integracion Cucumber con ./gradlew test.
+#   - frontend-build: instala dependencias, pasa el linter y compila el bundle.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Si llegan commits nuevos a un PR mientras un run anterior sigue corriendo,
+# cancela el viejo para no gastar minutos de Actions de gusto.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------- BACKEND
+  backend-tests:
+    name: backend-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del repo
+        uses: actions/checkout@v4
+
+      # Java 25 (Temurin) es el toolchain que exige build.gradle. Gradle lo
+      # auto-detecta del JAVA_HOME que deja este step. "cache: gradle" guarda
+      # las dependencias entre runs para que el build sea mas rapido.
+      - name: Configurar JDK 25 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      # Los tests Cucumber son de integracion: la app real (@SpringBootTest)
+      # necesita Postgres y Keycloak corriendo. Reusamos el docker-compose del
+      # repo, levantando SOLO db + keycloak (el backend lo arranca el propio
+      # test en un puerto aleatorio).
+      #
+      # Estas env replican el .env (que esta gitignored) para que los puertos
+      # publicados coincidan con lo que espera application-test.properties:
+      #   Postgres -> localhost:5440   |   Keycloak -> localhost:8081
+      - name: Levantar Postgres + Keycloak
+        env:
+          POSTGRES_PORT: '5440'
+          KEYCLOAK_PORT: '8081'
+          KEYCLOAK_ADMIN: admin
+          KEYCLOAK_ADMIN_PASSWORD: admin
+        run: docker compose up -d db keycloak
+
+      - name: Esperar a que Postgres acepte conexiones
+        run: |
+          for i in $(seq 1 30); do
+            if docker compose exec -T db pg_isready -U postgres -d fullstacktesting; then
+              echo "Postgres listo."
+              exit 0
+            fi
+            echo "Esperando a Postgres... intento $i"
+            sleep 2
+          done
+          echo "::error::Postgres no respondio a tiempo"
+          docker compose logs db
+          exit 1
+
+      # Keycloak 25+ expone /health en otro puerto (9000, no publicado), asi que
+      # en vez de health usamos el endpoint OIDC del realm: solo responde 200
+      # cuando Keycloak termino de arrancar Y de importar realm-export.json.
+      - name: Esperar a que Keycloak importe el realm
+        run: |
+          url="http://localhost:8081/realms/fullstacktesting/.well-known/openid-configuration"
+          for i in $(seq 1 60); do
+            if curl -fsS "$url" >/dev/null 2>&1; then
+              echo "Keycloak y el realm 'fullstacktesting' estan listos."
+              exit 0
+            fi
+            echo "Esperando a Keycloak... intento $i"
+            sleep 3
+          done
+          echo "::error::Keycloak no respondio a tiempo"
+          docker compose logs keycloak
+          exit 1
+
+      - name: Correr los tests (Gradle)
+        run: ./gradlew test --no-daemon
+
+      # Sube el reporte HTML/XML aunque los tests fallen, para poder revisarlo
+      # desde la pestana de la Action sin tener que reproducir local.
+      - name: Publicar reporte de tests
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-report
+          path: |
+            build/reports/tests/test
+            build/test-results/test
+          if-no-files-found: warn
+
+      - name: Apagar contenedores
+        if: ${{ always() }}
+        run: docker compose down -v
+
+  # --------------------------------------------------------------- FRONTEND
+  frontend-build:
+    name: frontend-build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout del repo
+        uses: actions/checkout@v4
+
+      - name: Configurar Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # "npm ci" instala exactamente lo del package-lock.json (build reproducible).
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Linter (ESLint)
+        run: npm run lint
+
+      - name: Compilar (tsc + vite build)
+        run: npm run build
