@@ -20,7 +20,6 @@ export default function ProductsPage() {
   const [statusFilter, setStatusFilter] = useState<ProductStatus | ''>('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [refreshKey, setRefreshKey] = useState(0)
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Product | null>(null)
@@ -43,9 +42,12 @@ export default function ProductsPage() {
     } finally {
       setLoading(false)
     }
-  }, [page, search, statusFilter, refreshKey, logout, navigate])
+  }, [page, search, statusFilter, logout, navigate])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-filter-change es el patrón estándar de carga de datos
+    load()
+  }, [load])
 
   function handleSearch(e: FormEvent) {
     e.preventDefault()
@@ -75,7 +77,7 @@ export default function ProductsPage() {
     try {
       await deleteProduct(token, deleteId)
       setDeleteId(null)
-      setRefreshKey(k => k + 1)
+      await load()
     } catch {
       setError('No se pudo eliminar el producto.')
     } finally {
@@ -212,7 +214,14 @@ export default function ProductsPage() {
         </div>
       </main>
 
-      <ProductModal open={modalOpen} product={editing} onClose={() => setModalOpen(false)} onSaved={() => setRefreshKey(k => k + 1)} />
+      {modalOpen && (
+        <ProductModal
+          key={editing?.id ?? 'new'}
+          product={editing}
+          onClose={() => setModalOpen(false)}
+          onSaved={load}
+        />
+      )}
     </div>
   )
 }

@@ -1,40 +1,30 @@
-import { useEffect, useState, type FormEvent, type ChangeEvent } from 'react'
+import { useState, type FormEvent, type ChangeEvent } from 'react'
 import type { Product, ProductRequest } from '../productsApi'
 import { createProduct, updateProduct } from '../productsApi'
 
 const TOKEN_KEY = 'access_token'
 
-const emptyForm = (): ProductRequest => ({
-  name: '', sku: '', description: null, category: '',
-  price: 0, quantity: 0, minimumStock: 0, status: 'ACTIVE',
-})
+function initialForm(product: Product | null): ProductRequest {
+  if (!product) {
+    return { name: '', sku: '', description: null, category: '', price: 0, quantity: 0, minimumStock: 0, status: 'ACTIVE' }
+  }
+  return {
+    name: product.name, sku: product.sku, description: product.description,
+    category: product.category, price: product.price, quantity: product.quantity,
+    minimumStock: product.minimumStock, status: product.status,
+  }
+}
 
 interface Props {
-  open: boolean
   product: Product | null
   onClose: () => void
   onSaved: () => void
 }
 
-export default function ProductModal({ open, product, onClose, onSaved }: Props) {
-  const [form, setForm] = useState<ProductRequest>(emptyForm())
+export default function ProductModal({ product, onClose, onSaved }: Props) {
+  const [form, setForm] = useState<ProductRequest>(() => initialForm(product))
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
-
-  useEffect(() => {
-    if (product) {
-      setForm({
-        name: product.name, sku: product.sku, description: product.description,
-        category: product.category, price: product.price, quantity: product.quantity,
-        minimumStock: product.minimumStock, status: product.status,
-      })
-    } else {
-      setForm(emptyForm())
-    }
-    setError('')
-  }, [product, open])
-
-  if (!open) return null
 
   function handleChange(e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
     const { name, value } = e.target
