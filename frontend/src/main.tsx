@@ -6,6 +6,9 @@ import { AuthProvider } from './auth/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import LoginPage from './pages/LoginPage'
 import HomePage from './pages/HomePage'
+import ProductsPage from './pages/ProductsPage'
+
+
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -13,7 +16,7 @@ createRoot(document.getElementById('root')!).render(
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
-          <Route
+         <Route
             path="/"
             element={
               <ProtectedRoute>
@@ -21,7 +24,16 @@ createRoot(document.getElementById('root')!).render(
               </ProtectedRoute>
             }
           />
+          
           {/* cualquier otra ruta -> a "/", que a su vez redirige a /login si no hay sesion */}
+          <Route
+            path="/products"
+            element={
+              <ProtectedRoute>
+                <ProductsPage />
+              </ProtectedRoute>
+            }
+          />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
