@@ -19,14 +19,13 @@ const AuthContext = createContext<AuthState | undefined>(undefined)
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
+  // loading arranca segun haya token: si no hay, ya no hay nada que validar
+  // (asi evitamos un setState sincrono dentro del effect).
+  const [loading, setLoading] = useState(() => localStorage.getItem(TOKEN_KEY) !== null)
 
   useEffect(() => {
     const token = localStorage.getItem(TOKEN_KEY)
-    if (!token) {
-      setLoading(false)
-      return
-    }
+    if (!token) return
     fetchMe(token)
       .then(setUser)
       .catch(() => localStorage.removeItem(TOKEN_KEY))
