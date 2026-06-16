@@ -23,10 +23,10 @@ Característica: Autenticación y roles
     Y mis roles son "<roles>"
 
     Ejemplos:
-      | usuario | clave | roles                 |
-      | admin   | admin | EDIT_ROLES,VIEW_ROLES |
-      | user1   | user1 | VIEW_ROLES            |
-      | user2   | user2 |                       |
+      | usuario | clave | roles                                              |
+      | admin   | admin | EDIT_ROLES,VIEW_ROLES,product:view,product:manage  |
+      | user1   | user1 | VIEW_ROLES,product:view                            |
+      | user2   | user2 |                                                    |
 
   Escenario: Un administrador puede asignar y quitar un rol
     Dado que el usuario "user2" no tiene el rol "EDIT_ROLES"
