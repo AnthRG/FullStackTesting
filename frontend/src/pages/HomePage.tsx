@@ -1,4 +1,6 @@
+import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+
 
 export default function HomePage() {
   const { user, logout } = useAuth()
@@ -50,6 +52,19 @@ export default function HomePage() {
               </dd>
             </div>
           </dl>
+
+          <div className="mt-6 pt-6 border-t border-slate-200">
+            <Link
+              to="/products"
+              className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 hover:bg-blue-50 hover:border-blue-200 transition"
+            >
+              <div>
+                <p className="text-sm font-medium text-slate-900">Gestión de productos</p>
+                <p className="text-xs text-slate-500 mt-0.5">Ver, crear y editar inventario</p>
+              </div>
+              <span className="text-sm text-blue-700">Ir →</span>
+            </Link>
+          </div>
         </div>
       </main>
     </div>
