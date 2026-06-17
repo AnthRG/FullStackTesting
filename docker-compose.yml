@@ -23,8 +23,6 @@ services:
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
-      # URL publica de Keycloak: fija el claim "iss" de los tokens a localhost:8081
-      # sin importar si se accede desde el host o desde la red interna.
       KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-http://localhost:8081}
       KC_HTTP_ENABLED: "true"
       KC_HEALTH_ENABLED: "true"
@@ -40,21 +38,13 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
-      # Dentro de la red de compose el host es "db"; fuera de docker el default es localhost
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:postgresql://db:5432/fullstacktesting}
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-postgres}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000}
-      # OAuth2 Resource Server. Spring Boot enlaza estas env vars a las propiedades:
-      #   spring.security.oauth2.resourceserver.jwt.issuer-uri
-      #   spring.security.oauth2.resourceserver.jwt.jwk-set-uri
-      # issuer  = URL publica (debe coincidir con el "iss" del token -> localhost:8081)
-      # jwk-set = URL interna de la red "spring" para descargar las llaves (keycloak:8080)
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-http://localhost:8081/realms/fullstacktesting}
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://keycloak:8080/realms/fullstacktesting/protocol/openid-connect/certs}
-      # Login: endpoint de token de Keycloak por la red interna
       KEYCLOAK_LOGIN_TOKEN_URI: ${KEYCLOAK_LOGIN_TOKEN_URI:-http://keycloak:8080/realms/fullstacktesting/protocol/openid-connect/token}
-      # Admin API de Keycloak (red interna). El backend administra usuarios/roles.
       KEYCLOAK_ADMIN_SERVER_URL: ${KEYCLOAK_ADMIN_SERVER_URL:-http://keycloak:8080}
       KEYCLOAK_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
@@ -72,8 +62,6 @@ services:
     build:
       context: ./frontend
       args:
-        # VITE_* se inyecta en build time; el navegador llama al backend
-        # por el puerto publicado en el host (default: localhost:8080)
         VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
     ports:
       - "${FRONTEND_PORT:-5173}:80"
@@ -82,8 +70,37 @@ services:
     networks:
       - spring
 
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - promdata:/prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    depends_on:
+      - backend
+    networks:
+      - spring
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafanadata:/var/lib/grafana
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - spring
+
 volumes:
   pgdata:
+  promdata:
+  grafanadata:
 
 networks:
   spring:
