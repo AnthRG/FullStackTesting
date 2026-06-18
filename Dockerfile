@@ -2,7 +2,6 @@
 FROM eclipse-temurin:25-jdk AS build
 WORKDIR /app
 
-# Cachea dependencias de Gradle antes de copiar el código
 COPY gradlew settings.gradle build.gradle ./
 COPY gradle ./gradle
 RUN ./gradlew dependencies --no-daemon || true

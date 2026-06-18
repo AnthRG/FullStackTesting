@@ -8,7 +8,6 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
         boolean existsBySku(String sku);
         
         boolean existsBySkuAndIdNot(String sku, Long id);
-        // Sirve para validar SKU único al editar (el mismo producto puede mantener su SKU)
 
     
 }

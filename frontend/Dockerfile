@@ -3,12 +3,10 @@ FROM node:24-alpine AS build
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 COPY . .
 
-# Vite inyecta las variables VITE_* en build time.
-# Editable con --build-arg VITE_API_URL=... (default: localhost)
 ARG VITE_API_URL=http://localhost:8080
 ENV VITE_API_URL=${VITE_API_URL}
 

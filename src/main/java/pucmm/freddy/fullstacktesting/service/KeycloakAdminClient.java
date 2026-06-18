@@ -35,16 +35,12 @@ import pucmm.freddy.fullstacktesting.dto.UserRolesView;
 @Service
 public class KeycloakAdminClient {
 
-    /** Roles que Keycloak crea solo y que no queremos exponer ni gestionar. */
     private static final Set<String> BUILTIN_ROLES = Set.of("offline_access", "uma_authorization");
 
     private final RestClient rest;
     private final KeycloakAdminProperties props;
 
     public KeycloakAdminClient(KeycloakAdminProperties props) {
-        // RestClient.builder() (factory estatico) evita depender de un bean
-        // RestClient.Builder. JdkClientHttpRequestFactory garantiza soporte de
-        // body en DELETE, necesario para quitar role-mappings en Keycloak.
         this.rest = RestClient.builder()
                 .requestFactory(new JdkClientHttpRequestFactory())
                 .build();
@@ -182,7 +178,7 @@ public class KeycloakAdminClient {
         return BUILTIN_ROLES.contains(roleName) || roleName.startsWith("default-roles-");
     }
 
-    // ----------------------- Representaciones internas de Keycloak (solo lo usado)
+    // ----------------------- Representaciones internas de Keycloak 
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     record KcUser(String id, String username, String email, Boolean enabled) {
