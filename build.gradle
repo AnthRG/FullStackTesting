@@ -34,11 +34,6 @@ dependencies {
 	runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
 	runtimeOnly 'org.postgresql:postgresql'
 	annotationProcessor 'org.projectlombok:lombok'
-	testImplementation platform('io.cucumber:cucumber-bom:7.22.1')
-	testImplementation 'io.cucumber:cucumber-java'
-	testImplementation 'io.cucumber:cucumber-spring'
-	testImplementation 'io.cucumber:cucumber-junit-platform-engine'
-	testImplementation 'org.junit.platform:junit-platform-suite'
 	testImplementation 'org.springframework.boot:spring-boot-starter-actuator-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-flyway-test'
@@ -49,6 +44,19 @@ dependencies {
 	testCompileOnly 'org.projectlombok:lombok'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testAnnotationProcessor 'org.projectlombok:lombok'
+	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+	testImplementation platform('org.testcontainers:testcontainers-bom:1.21.3')
+	testImplementation 'org.testcontainers:junit-jupiter'
+	testImplementation 'org.testcontainers:postgresql'
+	testImplementation 'com.github.dasniko:testcontainers-keycloak:3.7.0'
+}
+
+sourceSets {
+	test {
+		resources {
+			srcDir 'keycloak'
+		}
+	}
 }
 
 jacoco {
