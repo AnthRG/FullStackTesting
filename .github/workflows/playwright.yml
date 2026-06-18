@@ -40,13 +40,15 @@ jobs:
 
       - name: Levantar Postgres + Keycloak
         env:
-          POSTGRES_PORT: '5432'
+          POSTGRES_PORT: '5440'
           KEYCLOAK_PORT: '8081'
           KEYCLOAK_ADMIN: admin
           KEYCLOAK_ADMIN_PASSWORD: admin
         run: docker compose up -d db keycloak
 
       - name: Esperar a Postgres
+        env:
+          POSTGRES_PORT: '5440'
         run: |
           for i in $(seq 1 30); do
             if docker compose exec -T db pg_isready -U postgres -d fullstacktesting; then
@@ -69,7 +71,7 @@ jobs:
 
       - name: Arrancar backend en segundo plano
         env:
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/fullstacktesting
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5440/fullstacktesting
           SPRING_DATASOURCE_USERNAME: postgres
           SPRING_DATASOURCE_PASSWORD: postgres
           SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://localhost:8081/realms/fullstacktesting
@@ -112,6 +114,25 @@ jobs:
           cat frontend.log
           exit 1
 
+      - name: Calentar JWT (forzar descarga de llaves JWK antes de los tests)
+        run: |
+          TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
+            -H "Content-Type: application/json" \
+            -d '{"username":"admin","password":"admin"}' \
+            | grep -o '"accessToken":"[^"]*"' | cut -d'"' -f4)
+          if [ -z "$TOKEN" ]; then
+            echo "::error::No se obtuvo token — el login falló"
+            tail -50 backend.log; exit 1
+          fi
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer $TOKEN" \
+            http://localhost:8080/api/auth/me)
+          if [ "$STATUS" != "200" ]; then
+            echo "::error::JWT validation falló (HTTP $STATUS)"
+            tail -50 backend.log; exit 1
+          fi
+          echo "Warmup OK — JWK keys cacheadas, JWT válido"
+
       - name: Correr tests E2E
         run: npx playwright test
 
@@ -122,6 +143,10 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 30
+
+      - name: Imprimir log del backend si falló
+        if: failure()
+        run: tail -100 backend.log || true
 
       - name: Apagar contenedores
         if: ${{ always() }}
