@@ -22,14 +22,13 @@ async function login(page: Page, username = CREDENTIALS.username, password = CRE
   await page.getByRole('button', { name: 'Entrar' }).click()
 }
 
-//  Tests de autenticación 
+//  Tests de autenticación
 test.describe('Login', () => {
   test('credenciales correctas redirigen al home y muestran bienvenida', async ({ page }) => {
     await login(page)
 
-    await page.waitForURL('/')
-    await page.waitForLoadState('networkidle')
-    await expect(page.getByText(CREDENTIALS.username, { exact: true })).toBeVisible()
+    await expect(page).toHaveURL('/', { timeout: 15000 })
+    await expect(page.getByText(`Bienvenida, ${CREDENTIALS.username}`)).toBeVisible()
   })
 
   test('credenciales incorrectas muestran mensaje de error', async ({ page }) => {
@@ -47,7 +46,7 @@ test.describe('CRUD de Productos', () => {
 
   test.beforeEach(async ({ page }) => {
     await login(page)
-    await page.waitForURL('/')
+    await expect(page).toHaveURL('/', { timeout: 15000 })
     await page.goto('/products')
     await expect(page.getByRole('heading', { name: 'Productos' })).toBeVisible()
   })

@@ -1,72 +1,44 @@
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 
+function IconInventory() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+    </svg>
+  )
+}
 
 export default function HomePage() {
-  const { user, logout } = useAuth()
+  const { user } = useAuth()
+  const navigate = useNavigate()
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
-          <span className="font-semibold text-slate-900">Full Stack Testing</span>
-          <button
-            onClick={logout}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 transition hover:bg-slate-100"
-          >
-            Cerrar sesión
-          </button>
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center px-8 py-24">
+      <div className="flex flex-col items-center justify-center text-center max-w-xl">
+        <div className="w-28 h-28 rounded-3xl bg-blue-50 border border-blue-100 flex items-center justify-center mb-8 shadow-sm">
+          <IconInventory />
         </div>
-      </header>
 
-      <main className="mx-auto max-w-3xl px-4 py-10">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h1 className="mb-1 text-lg font-semibold text-slate-900">Sesión iniciada</h1>
-          <p className="mb-6 text-sm text-slate-500">
-            Datos de{' '}
-            <code className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">/api/auth/me</code>{' '}
-            (validado por Spring Security).
-          </p>
-          <dl className="space-y-3 text-sm">
-            <div className="flex gap-4">
-              <dt className="w-20 shrink-0 text-slate-500">Usuario</dt>
-              <dd className="font-medium text-slate-900">{user?.username}</dd>
-            </div>
-            <div className="flex gap-4">
-              <dt className="w-20 shrink-0 text-slate-500">Email</dt>
-              <dd className="text-slate-900">{user?.email ?? '—'}</dd>
-            </div>
-            <div className="flex gap-4">
-              <dt className="w-20 shrink-0 text-slate-500">Roles</dt>
-              <dd className="flex flex-wrap gap-1.5">
-                {user && user.roles.length > 0
-                  ? user.roles.map((role) => (
-                      <span
-                        key={role}
-                        className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700"
-                      >
-                        {role}
-                      </span>
-                    ))
-                  : '—'}
-              </dd>
-            </div>
-          </dl>
+        {/* Bienvenida */}
+        <h1 className="text-3xl font-bold text-slate-900 mb-2 text-center">
+          Bienvenida, {user?.username}
+        </h1>
+        <p className="text-slate-400 mb-12 text-center text-sm">
+          Sistema de gestión de inventario
+        </p>
 
-          <div className="mt-6 pt-6 border-t border-slate-200">
-            <Link
-              to="/products"
-              className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 hover:bg-blue-50 hover:border-blue-200 transition"
-            >
-              <div>
-                <p className="text-sm font-medium text-slate-900">Gestión de productos</p>
-                <p className="text-xs text-slate-500 mt-0.5">Ver, crear y editar inventario</p>
-              </div>
-              <span className="text-sm text-blue-700">Ir →</span>
-            </Link>
-          </div>
-        </div>
-      </main>
+        {/* Botón de acceso */}
+        <button
+          onClick={() => navigate('/products')}
+          className="inline-flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors text-sm shadow-sm"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
+          </svg>
+          Gestión de productos
+        </button>
+      </div>
     </div>
   )
 }
