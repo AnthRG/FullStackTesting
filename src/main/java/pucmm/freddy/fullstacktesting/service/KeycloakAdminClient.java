@@ -1,5 +1,6 @@
 package pucmm.freddy.fullstacktesting.service;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -7,13 +8,13 @@ import java.util.Set;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -43,6 +44,12 @@ public class KeycloakAdminClient {
     public KeycloakAdminClient(KeycloakAdminProperties props) {
         this.rest = RestClient.builder()
                 .requestFactory(new JdkClientHttpRequestFactory())
+                .defaultStatusHandler(HttpStatusCode::isError, (request, response) -> {
+                    String body = new String(response.getBody().readAllBytes(), StandardCharsets.UTF_8);
+                    throw new ResponseStatusException(response.getStatusCode(),
+                            "Keycloak admin API " + request.getMethod() + " " + request.getURI()
+                                    + " -> " + response.getStatusCode() + " body=" + body);
+                })
                 .build();
         this.props = props;
     }
@@ -139,7 +146,7 @@ public class KeycloakAdminClient {
                     .header(HttpHeaders.AUTHORIZATION, bearer(token))
                     .retrieve()
                     .body(KcRole.class);
-        } catch (RestClientResponseException e) {
+        } catch (ResponseStatusException e) {
             if (e.getStatusCode().value() == 404) {
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Rol no existe: " + roleName);
             }
