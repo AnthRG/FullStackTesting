@@ -39,7 +39,7 @@ class ProductServiceIT extends AbstractIntegrationTest {
 
         ProductResponse encontrado = service.findById(creado.id());
 
-        assertThat(encontrado.sku()).isEqualTo("SKU-uno-1");
+        assertThat(encontrado.sku()).isEqualTo("SKU-UNO-1");
         assertThat(encontrado.name()).isEqualTo("Producto uno");
         assertThat(encontrado.price()).isEqualByComparingTo("10.00");
     }
@@ -102,7 +102,7 @@ class ProductServiceIT extends AbstractIntegrationTest {
 
         Page<ProductResponse> res = service.list("busqueda", null, PageRequest.of(0, 10));
 
-        assertThat(res.getContent()).extracting(ProductResponse::sku).containsExactly("SKU-Busqueda-1");
+        assertThat(res.getContent()).extracting(ProductResponse::sku).containsExactly("SKU-BUSQUEDA-1");
     }
 
     @Test
