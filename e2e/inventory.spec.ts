@@ -14,12 +14,14 @@ const TEST_PRODUCT = {
   minimumStock: '1',
 }
 
-//Helper de login
+//Helper de login: arranca en la app y completa el formulario de Keycloak (Auth Code + PKCE)
 async function login(page: Page, username = CREDENTIALS.username, password = CREDENTIALS.password) {
   await page.goto('/login')
+  await page.getByRole('button', { name: 'Entrar' }).click()
+  await page.waitForURL(/\/realms\/fullstacktesting\//)
   await page.locator('#username').fill(username)
   await page.locator('#password').fill(password)
-  await page.getByRole('button', { name: 'Entrar' }).click()
+  await page.locator('#kc-login').click()
 }
 
 //  Tests de autenticación
@@ -31,11 +33,11 @@ test.describe('Login', () => {
     await expect(page.getByText(`Bienvenida, ${CREDENTIALS.username}`)).toBeVisible()
   })
 
-  test('credenciales incorrectas muestran mensaje de error', async ({ page }) => {
+  test('credenciales incorrectas se quedan en Keycloak con un mensaje de error', async ({ page }) => {
     await login(page, 'usuariofalso', 'clavefalsa')
 
-    await expect(page).toHaveURL('/login')
-    await expect(page.getByText('Usuario o contraseña incorrectos')).toBeVisible()
+    await expect(page).toHaveURL(/\/realms\/fullstacktesting\//)
+    await expect(page.getByText(/Invalid username or password|Usuario o contraseña inválidos/i)).toBeVisible()
   })
 })
 
