@@ -1,46 +1,88 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { fetchMe, loginRequest, type User } from '../api'
-
-const TOKEN_KEY = 'access_token'
+import type { KeycloakTokenParsed } from 'keycloak-js'
+import type { User } from '../api'
+import keycloak, { initKeycloak, ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY } from './keycloak'
 
 interface AuthState {
   user: User | null
   loading: boolean
-  login: (username: string, password: string) => Promise<void>
+  login: () => void
   logout: () => void
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined)
 
-/**
- * Mantiene la sesion en el frontend: guarda el token en localStorage y expone
- * login/logout y el usuario actual. Al montar, si hay token, valida la sesion
- * pidiendo /api/auth/me.
- */
+type Claims = KeycloakTokenParsed & { preferred_username?: string; email?: string }
+
+function persistTokens() {
+  if (keycloak.token) localStorage.setItem(ACCESS_TOKEN_KEY, keycloak.token)
+  if (keycloak.refreshToken) localStorage.setItem(REFRESH_TOKEN_KEY, keycloak.refreshToken)
+}
+
+function clearTokens() {
+  localStorage.removeItem(ACCESS_TOKEN_KEY)
+  localStorage.removeItem(REFRESH_TOKEN_KEY)
+}
+
+function currentUser(): User | null {
+  const claims = keycloak.tokenParsed as Claims | undefined
+  if (!claims) return null
+  return {
+    username: claims.preferred_username ?? '',
+    email: claims.email ?? null,
+    roles: claims.realm_access?.roles ?? [],
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  // loading arranca segun haya token: si no hay, ya no hay nada que validar
-  // (asi evitamos un setState sincrono dentro del effect).
-  const [loading, setLoading] = useState(() => localStorage.getItem(TOKEN_KEY) !== null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const token = localStorage.getItem(TOKEN_KEY)
-    if (!token) return
-    fetchMe(token)
-      .then(setUser)
-      .catch(() => localStorage.removeItem(TOKEN_KEY))
-      .finally(() => setLoading(false))
+    let mounted = true
+
+    keycloak.onAuthSuccess = () => {
+      persistTokens()
+      if (mounted) setUser(currentUser())
+    }
+    keycloak.onAuthRefreshSuccess = persistTokens
+    keycloak.onAuthLogout = () => {
+      clearTokens()
+      if (mounted) setUser(null)
+    }
+    keycloak.onTokenExpired = () => {
+      keycloak.updateToken(30).catch(() => {})
+    }
+
+    initKeycloak()
+      .then((authenticated) => {
+        if (!mounted) return
+        if (authenticated) {
+          persistTokens()
+          setUser(currentUser())
+        } else {
+          clearTokens()
+        }
+      })
+      .catch(() => {
+        if (mounted) clearTokens()
+      })
+      .finally(() => {
+        if (mounted) setLoading(false)
+      })
+
+    return () => {
+      mounted = false
+    }
   }, [])
 
-  const login = async (username: string, password: string) => {
-    const { accessToken } = await loginRequest(username, password)
-    localStorage.setItem(TOKEN_KEY, accessToken)
-    setUser(await fetchMe(accessToken))
+  const login = () => {
+    initKeycloak().then(() => keycloak.login())
   }
 
   const logout = () => {
-    localStorage.removeItem(TOKEN_KEY)
-    setUser(null)
+    clearTokens()
+    keycloak.logout({ redirectUri: window.location.origin + '/login' })
   }
 
   return (
