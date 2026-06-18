@@ -7,8 +7,10 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.PostgreSQLContainer;
 
+import java.io.IOException;
 import java.util.Map;
 
 public abstract class AbstractIntegrationTest {
@@ -28,6 +30,33 @@ public abstract class AbstractIntegrationTest {
     static {
         POSTGRES.start();
         KEYCLOAK.start();
+        relaxMasterSslRequirement();
+    }
+
+    private static void relaxMasterSslRequirement() {
+        try {
+            execKcadm("config", "credentials",
+                    "--server", "http://localhost:8080",
+                    "--realm", "master",
+                    "--user", KEYCLOAK.getAdminUsername(),
+                    "--password", KEYCLOAK.getAdminPassword());
+            execKcadm("update", "realms/master", "-s", "sslRequired=NONE");
+        } catch (IOException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(
+                    "No se pudo relajar sslRequired del realm master en el Keycloak de test", e);
+        }
+    }
+
+    private static void execKcadm(String... args) throws IOException, InterruptedException {
+        String[] cmd = new String[args.length + 1];
+        cmd[0] = "/opt/keycloak/bin/kcadm.sh";
+        System.arraycopy(args, 0, cmd, 1, args.length);
+        Container.ExecResult result = KEYCLOAK.execInContainer(cmd);
+        if (result.getExitCode() != 0) {
+            throw new IllegalStateException("kcadm fallo (" + String.join(" ", cmd) + "): "
+                    + result.getStdout() + result.getStderr());
+        }
     }
 
     @DynamicPropertySource
