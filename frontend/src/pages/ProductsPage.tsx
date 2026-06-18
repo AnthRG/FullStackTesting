@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { deleteProduct, listProducts } from '../productsApi'
 import type { Product, ProductStatus } from '../productsApi'
 import ProductModal from '../components/ProductModal'
+import Layout from '../components/Layout'
 
 const TOKEN_KEY = 'access_token'
 
@@ -86,105 +87,137 @@ export default function ProductsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <span className="font-semibold text-blue-900">Full Stack Testing</span>
-          <nav className="flex items-center gap-6">
-            <Link to="/" className="text-sm text-slate-500 hover:text-slate-800 transition">Inicio</Link>
-            <span className="text-sm font-medium text-blue-800 border-b-2 border-blue-800 pb-0.5">Productos</span>
-            <button onClick={logout}
-              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 transition hover:bg-slate-100">
-              Cerrar sesión
-            </button>
-          </nav>
-        </div>
-      </header>
+    <Layout>
+      <div className="px-8 py-8 max-w-6xl mx-auto">
 
-      <main className="mx-auto max-w-6xl px-6 py-8">
+        {/* Encabezado */}
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-xl font-semibold text-slate-900">Productos</h1>
-            {!loading && <p className="text-sm text-slate-500 mt-0.5">{totalElements} productos en total</p>}
+            {!loading && (
+              <p className="text-sm text-slate-400 mt-0.5">{totalElements} productos en total</p>
+            )}
           </div>
-          <button onClick={openCreate}
-            className="rounded-lg bg-blue-800 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition">
-            + Nuevo producto
+          <button
+            onClick={openCreate}
+            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            Nuevo producto
           </button>
         </div>
 
-        <div className="flex flex-wrap gap-3 mb-4">
+        {/* Filtros */}
+        <div className="flex flex-wrap gap-3 mb-5">
           <form onSubmit={handleSearch} className="flex gap-2">
-            <input value={searchInput} onChange={e => setSearchInput(e.target.value)}
+            <input
+              value={searchInput}
+              onChange={e => setSearchInput(e.target.value)}
               placeholder="Buscar por nombre o SKU…"
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-600 transition w-72" />
-            <button type="submit"
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 transition">
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition w-72"
+            />
+            <button
+              type="submit"
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition"
+            >
               Buscar
             </button>
           </form>
-          <select value={statusFilter} onChange={handleStatusChange}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-600 transition bg-white">
+          <select
+            value={statusFilter}
+            onChange={handleStatusChange}
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition"
+          >
             <option value="">Todos los estados</option>
             <option value="ACTIVE">Activo</option>
             <option value="INACTIVE">Inactivo</option>
           </select>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-          {error && <p className="px-6 py-4 text-sm text-red-600">{error}</p>}
+        {/* Tabla */}
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          {error && (
+            <p className="px-6 py-4 text-sm text-red-500 border-b border-slate-100">{error}</p>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Nombre</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">SKU</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Categoría</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">Precio</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">Cantidad</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">Stock mín.</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wide">Estado</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">Acciones</th>
+                <tr className="border-b border-slate-100 bg-slate-50">
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Nombre</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">SKU</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Categoría</th>
+                  <th className="px-5 py-3 text-right text-xs font-semibold text-slate-400 uppercase tracking-wide">Precio</th>
+                  <th className="px-5 py-3 text-right text-xs font-semibold text-slate-400 uppercase tracking-wide">Cantidad</th>
+                  <th className="px-5 py-3 text-right text-xs font-semibold text-slate-400 uppercase tracking-wide">Stock mín.</th>
+                  <th className="px-5 py-3 text-center text-xs font-semibold text-slate-400 uppercase tracking-wide">Estado</th>
+                  <th className="px-5 py-3 text-right text-xs font-semibold text-slate-400 uppercase tracking-wide">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading && (
-                  <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-400">Cargando…</td></tr>
+                  <tr>
+                    <td colSpan={8} className="px-5 py-12 text-center text-sm text-slate-300">
+                      Cargando…
+                    </td>
+                  </tr>
                 )}
                 {!loading && products.length === 0 && (
-                  <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-400">No se encontraron productos.</td></tr>
+                  <tr>
+                    <td colSpan={8} className="px-5 py-12 text-center text-sm text-slate-300">
+                      No se encontraron productos.
+                    </td>
+                  </tr>
                 )}
                 {!loading && products.map(p => (
                   <tr key={p.id} className="hover:bg-blue-50 transition-colors">
-                    <td className="px-4 py-3 font-medium text-slate-900 max-w-[180px] truncate">{p.name}</td>
-                    <td className="px-4 py-3 text-slate-500 font-mono text-xs">{p.sku}</td>
-                    <td className="px-4 py-3 text-slate-600">{p.category}</td>
-                    <td className="px-4 py-3 text-right text-slate-900">${p.price.toFixed(2)}</td>
-                    <td className="px-4 py-3 text-right text-slate-600">{p.quantity}</td>
-                    <td className="px-4 py-3 text-right text-slate-600">{p.minimumStock}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        p.status === 'ACTIVE' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-500'
+                    <td className="px-5 py-3 font-medium text-slate-900 max-w-[180px] truncate">{p.name}</td>
+                    <td className="px-5 py-3 font-mono text-xs text-slate-400">{p.sku}</td>
+                    <td className="px-5 py-3 text-slate-600">{p.category}</td>
+                    <td className="px-5 py-3 text-right text-slate-900">${p.price.toFixed(2)}</td>
+                    <td className="px-5 py-3 text-right text-slate-600">{p.quantity}</td>
+                    <td className="px-5 py-3 text-right text-slate-600">{p.minimumStock}</td>
+                    <td className="px-5 py-3 text-center">
+                      <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        p.status === 'ACTIVE'
+                          ? 'bg-blue-50 text-blue-700'
+                          : 'bg-slate-100 text-slate-400'
                       }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${p.status === 'ACTIVE' ? 'bg-blue-500' : 'bg-slate-400'}`} />
                         {p.status === 'ACTIVE' ? 'Activo' : 'Inactivo'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-5 py-3 text-right">
                       {deleteId === p.id ? (
                         <span className="inline-flex items-center gap-2">
-                          <span className="text-xs text-slate-500">¿Eliminar?</span>
-                          <button onClick={handleDelete} disabled={deleting}
-                            className="text-xs font-medium text-red-600 hover:text-red-700 disabled:opacity-50">
+                          <span className="text-xs text-slate-400">¿Eliminar?</span>
+                          <button
+                            onClick={handleDelete}
+                            disabled={deleting}
+                            className="text-xs font-medium text-red-500 hover:text-red-700 disabled:opacity-50"
+                          >
                             {deleting ? '…' : 'Sí'}
                           </button>
-                          <button onClick={() => setDeleteId(null)} className="text-xs text-slate-500 hover:text-slate-700">No</button>
+                          <button
+                            onClick={() => setDeleteId(null)}
+                            className="text-xs text-slate-400 hover:text-slate-600"
+                          >
+                            No
+                          </button>
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-3">
-                          <button onClick={() => openEdit(p)} className="text-xs font-medium text-blue-700 hover:text-blue-900 transition">
+                          <button
+                            onClick={() => openEdit(p)}
+                            className="text-xs font-medium text-blue-600 hover:text-blue-800 transition"
+                          >
                             Editar
                           </button>
-                          <button onClick={() => setDeleteId(p.id)} className="text-xs font-medium text-slate-400 hover:text-red-500 transition">
+                          <button
+                            onClick={() => setDeleteId(p.id)}
+                            className="text-xs font-medium text-slate-300 hover:text-red-500 transition"
+                          >
                             Eliminar
                           </button>
                         </span>
@@ -196,24 +229,34 @@ export default function ProductsPage() {
             </table>
           </div>
 
+          {/* Paginación */}
           {totalPages > 1 && (
-            <div className="border-t border-slate-200 px-4 py-3 flex items-center justify-between">
-              <p className="text-xs text-slate-500">Página {page + 1} de {totalPages} · {totalElements} productos</p>
+            <div className="border-t border-slate-100 px-5 py-3 flex items-center justify-between">
+              <p className="text-xs text-slate-400">
+                Página {page + 1} de {totalPages} · {totalElements} productos
+              </p>
               <div className="flex gap-2">
-                <button onClick={() => setPage(p => p - 1)} disabled={page === 0}
-                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-40 transition">
-                  Anterior
+                <button
+                  onClick={() => setPage(p => p - 1)}
+                  disabled={page === 0}
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-50 disabled:opacity-30 transition"
+                >
+                  ← Anterior
                 </button>
-                <button onClick={() => setPage(p => p + 1)} disabled={page >= totalPages - 1}
-                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-40 transition">
-                  Siguiente
+                <button
+                  onClick={() => setPage(p => p + 1)}
+                  disabled={page >= totalPages - 1}
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-50 disabled:opacity-30 transition"
+                >
+                  Siguiente →
                 </button>
               </div>
             </div>
           )}
         </div>
-      </main>
+      </div>
 
+      {/* Modal */}
       {modalOpen && (
         <ProductModal
           key={editing?.id ?? 'new'}
@@ -222,6 +265,6 @@ export default function ProductsPage() {
           onSaved={load}
         />
       )}
-    </div>
+    </Layout>
   )
 }
