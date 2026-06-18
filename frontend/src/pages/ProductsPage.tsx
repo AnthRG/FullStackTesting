@@ -46,6 +46,7 @@ export default function ProductsPage() {
   }, [page, search, statusFilter, logout, navigate])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-filter-change es el patrón estándar de carga de datos
     load()
   }, [load])
 
