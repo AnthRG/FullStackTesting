@@ -1,0 +1,128 @@
+name: Playwright E2E Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: playwright-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Configurar Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias Playwright
+        run: npm ci
+
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Levantar Postgres + Keycloak
+        env:
+          POSTGRES_PORT: '5432'
+          KEYCLOAK_PORT: '8081'
+          KEYCLOAK_ADMIN: admin
+          KEYCLOAK_ADMIN_PASSWORD: admin
+        run: docker compose up -d db keycloak
+
+      - name: Esperar a Postgres
+        run: |
+          for i in $(seq 1 30); do
+            if docker compose exec -T db pg_isready -U postgres -d fullstacktesting; then
+              echo "Postgres listo"; exit 0
+            fi
+            echo "Intento $i..."; sleep 2
+          done
+          docker compose logs db; exit 1
+
+      - name: Esperar a Keycloak
+        run: |
+          url="http://localhost:8081/realms/fullstacktesting/.well-known/openid-configuration"
+          for i in $(seq 1 60); do
+            if curl -fsS "$url" >/dev/null 2>&1; then
+              echo "Keycloak listo"; exit 0
+            fi
+            echo "Intento $i..."; sleep 3
+          done
+          docker compose logs keycloak; exit 1
+
+      - name: Arrancar backend en segundo plano
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/fullstacktesting
+          SPRING_DATASOURCE_USERNAME: postgres
+          SPRING_DATASOURCE_PASSWORD: postgres
+          SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://localhost:8081/realms/fullstacktesting
+          SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://localhost:8081/realms/fullstacktesting/protocol/openid-connect/certs
+          KEYCLOAK_LOGIN_TOKEN_URI: http://localhost:8081/realms/fullstacktesting/protocol/openid-connect/token
+          KEYCLOAK_ADMIN_SERVER_URL: http://localhost:8081
+          KEYCLOAK_ADMIN_USERNAME: admin
+          KEYCLOAK_ADMIN_PASSWORD: admin
+        run: nohup ./gradlew bootRun --no-daemon > backend.log 2>&1 &
+
+      - name: Instalar dependencias frontend
+        run: npm ci
+        working-directory: frontend
+
+      - name: Arrancar frontend en segundo plano
+        run: nohup npm run dev > ../frontend.log 2>&1 &
+        working-directory: frontend
+
+      - name: Esperar a que el backend esté listo
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:8080/actuator/health >/dev/null 2>&1; then
+              echo "Backend listo"; exit 0
+            fi
+            echo "Intento $i..."; sleep 3
+          done
+          echo "Backend no respondió. Log:"
+          cat backend.log
+          exit 1
+
+      - name: Esperar a que el frontend esté listo
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:5173 >/dev/null 2>&1; then
+              echo "Frontend listo"; exit 0
+            fi
+            echo "Intento $i..."; sleep 2
+          done
+          echo "Frontend no respondió. Log:"
+          cat frontend.log
+          exit 1
+
+      - name: Correr tests E2E
+        run: npx playwright test
+
+      - name: Publicar reporte Playwright
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30
+
+      - name: Apagar contenedores
+        if: ${{ always() }}
+        run: docker compose down -v
