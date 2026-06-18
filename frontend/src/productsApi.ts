@@ -46,9 +46,12 @@ export async function listProducts(token: string, params: {
   if (params.status) q.set('status', params.status)
   q.set('page', String(params.page ?? 0))
   q.set('size', '10')
-  q.set('sort', 'name')
+  q.set('sort', 'createdAt,desc')
   const res = await fetch(`${API_URL}/api/products?${q}`, { headers: auth(token) })
-  if (!res.ok) throw new Error(`Error ${res.status}`)
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { detail?: string }
+    throw new Error(body.detail ?? `Error ${res.status}`)
+  }
   return res.json()
 }
 
