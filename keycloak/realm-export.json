@@ -4,7 +4,7 @@
   "sslRequired": "none",
   "registrationAllowed": false,
   "loginWithEmailAllowed": true,
-  "accessTokenLifespan": 300,
+  "accessTokenLifespan": 700,
   "roles": {
     "realm": [
       { "name": "VIEW_ROLES",     "description": "Puede ver los roles de los usuarios" },
