@@ -3,6 +3,7 @@ package pucmm.freddy.fullstacktesting.service;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -46,23 +47,33 @@ public class ProductService {
 
     @Transactional
     public ProductResponse create(ProductRequest req) {
-        if (repository.existsBySku(req.sku())) throw new DuplicateSkuException(req.sku());
-        return ProductResponse.from(repository.save(toEntity(req)));
+        String sku = req.sku().trim().toUpperCase();
+        if (repository.existsBySku(sku)) throw new DuplicateSkuException(sku);
+        try {
+            return ProductResponse.from(repository.save(toEntity(req)));
+        } catch (DataIntegrityViolationException ex) {
+            throw new DuplicateSkuException(sku);
+        }
     }
 
     @Transactional
     public ProductResponse update(Long id, ProductRequest req) {
-        if (repository.existsBySkuAndIdNot(req.sku(), id)) throw new DuplicateSkuException(req.sku());
+        String sku = req.sku().trim().toUpperCase();
+        if (repository.existsBySkuAndIdNot(sku, id)) throw new DuplicateSkuException(sku);
         Product product = getOrThrow(id);
         product.setName(req.name());
-        product.setSku(req.sku());
+        product.setSku(sku);
         product.setDescription(req.description());
         product.setCategory(req.category());
         product.setPrice(req.price());
         product.setQuantity(req.quantity());
         product.setMinimumStock(req.minimumStock());
         product.setStatus(req.status());
-        return ProductResponse.from(repository.save(product));
+        try {
+            return ProductResponse.from(repository.save(product));
+        } catch (DataIntegrityViolationException ex) {
+            throw new DuplicateSkuException(sku);
+        }
     }
 
     @Transactional
@@ -78,7 +89,7 @@ public class ProductService {
     private Product toEntity(ProductRequest req) {
         Product product = new Product();
         product.setName(req.name());
-        product.setSku(req.sku());
+        product.setSku(req.sku().trim().toUpperCase());
         product.setDescription(req.description());
         product.setCategory(req.category());
         product.setPrice(req.price());

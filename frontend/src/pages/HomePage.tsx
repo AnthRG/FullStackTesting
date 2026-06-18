@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import Layout from '../components/Layout'
 
 function IconInventory() {
   return (
@@ -14,8 +15,10 @@ export default function HomePage() {
   const navigate = useNavigate()
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center px-8 py-24">
-      <div className="flex flex-col items-center justify-center text-center max-w-xl">
+    <Layout>
+      <div className="flex flex-col items-center justify-center min-h-full py-24 px-8">
+
+        {/* Ícono decorativo */}
         <div className="w-28 h-28 rounded-3xl bg-blue-50 border border-blue-100 flex items-center justify-center mb-8 shadow-sm">
           <IconInventory />
         </div>
@@ -38,7 +41,8 @@ export default function HomePage() {
           </svg>
           Gestión de productos
         </button>
+
       </div>
-    </div>
+    </Layout>
   )
 }
