@@ -12,6 +12,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import pucmm.freddy.fullstacktesting.AbstractIntegrationTest;
 import pucmm.freddy.fullstacktesting.domain.Product;
 import pucmm.freddy.fullstacktesting.domain.ProductRepository;
 import pucmm.freddy.fullstacktesting.domain.ProductStatus;
@@ -24,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
 @ActiveProfiles("test")
-class ProductAuditIT {
+class ProductAuditIT extends AbstractIntegrationTest {
 
     @Autowired
     private ProductRepository repository;
