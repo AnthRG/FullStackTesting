@@ -76,3 +76,27 @@ tasks.named('jacocoTestReport') {
 		csv.required = true
 	}
 }
+
+jacocoTestCoverageVerification {
+	dependsOn tasks.named('jacocoTestReport')
+	violationRules {
+		rule {
+			// FullstacktestingApplication: clase main sin lógica propia, solo
+			// arranca Spring Boot (SpringApplication.run). No se excluye del
+			// reporte, solo de esta regla, para no fabricar cobertura sobre
+			// código que no tiene ramas ni comportamiento que probar.
+			excludes = [
+				'pucmm.freddy.fullstacktesting.FullstacktestingApplication'
+			]
+			limit {
+				counter = 'INSTRUCTION'
+				value = 'COVEREDRATIO'
+				minimum = 0.80
+			}
+		}
+	}
+}
+
+tasks.named('check') {
+	dependsOn tasks.named('jacocoTestCoverageVerification')
+}
