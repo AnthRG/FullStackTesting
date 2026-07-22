@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext'
 import { deleteProduct, listProducts } from '../productsApi'
 import type { Product, ProductStatus } from '../productsApi'
 import ProductModal from '../components/ProductModal'
+import ProductHistoryModal from '../components/ProductHistoryModal'
 import Layout from '../components/Layout'
 
 const TOKEN_KEY = 'access_token'
@@ -26,6 +27,7 @@ export default function ProductsPage() {
   const [editing, setEditing] = useState<Product | null>(null)
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [historyProduct, setHistoryProduct] = useState<Product | null>(null)
 
   const load = useCallback(async () => {
     const token = localStorage.getItem(TOKEN_KEY) ?? ''
@@ -209,6 +211,15 @@ export default function ProductsPage() {
                       ) : (
                         <span className="inline-flex items-center gap-3">
                           <button
+                            onClick={() => setHistoryProduct(p)}
+                            aria-label={`Ver historial de ${p.name}`}
+                            className="text-slate-300 hover:text-blue-600 transition cursor-pointer"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                            </svg>
+                          </button>
+                          <button
                             onClick={() => openEdit(p)}
                             className="text-xs font-medium text-blue-600 hover:text-blue-800 transition"
                           >
@@ -263,6 +274,15 @@ export default function ProductsPage() {
           product={editing}
           onClose={() => setModalOpen(false)}
           onSaved={load}
+        />
+      )}
+
+      {/* Historial */}
+      {historyProduct && (
+        <ProductHistoryModal
+          productId={historyProduct.id}
+          productName={historyProduct.name}
+          onClose={() => setHistoryProduct(null)}
         />
       )}
     </Layout>
