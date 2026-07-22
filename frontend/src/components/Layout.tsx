@@ -1,6 +1,6 @@
+import { useState, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import type { ReactNode } from 'react'
 
 function IconHome() {
   return (
@@ -18,6 +18,14 @@ function IconBox() {
   )
 }
 
+function IconMovements() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 7.5 7.5 3m0 0L12 7.5M7.5 3v13.5m13.5 0L16.5 21m0 0L12 16.5m4.5 4.5V7.5" />
+    </svg>
+  )
+}
+
 function IconLogout() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -26,9 +34,18 @@ function IconLogout() {
   )
 }
 
+function IconMenu() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" />
+    </svg>
+  )
+}
+
 const navLinks = [
-  { to: '/',         label: 'Inicio',    icon: <IconHome /> },
-  { to: '/products', label: 'Productos', icon: <IconBox /> },
+  { to: '/',          label: 'Inicio',      icon: <IconHome /> },
+  { to: '/products',  label: 'Productos',   icon: <IconBox /> },
+  { to: '/movements', label: 'Movimientos', icon: <IconMovements /> },
 ]
 
 interface LayoutProps {
@@ -38,12 +55,24 @@ interface LayoutProps {
 export default function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuth()
   const location = useLocation()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
     <div className="flex h-screen bg-slate-50">
 
+      {/* ── Overlay móvil ── */}
+      {sidebarOpen && (
+        <button
+          onClick={() => setSidebarOpen(false)}
+          aria-label="Cerrar menú"
+          className="fixed inset-0 z-20 bg-slate-900/40 cursor-pointer md:hidden"
+        />
+      )}
+
       {/* ── Sidebar ── */}
-      <aside className="w-56 shrink-0 flex flex-col bg-white border-r border-slate-200">
+      <aside className={`fixed inset-y-0 left-0 z-30 w-56 shrink-0 flex flex-col bg-white border-r border-slate-200 transition-transform duration-300 ease-out md:static md:translate-x-0 ${
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}>
 
         {/* Logo */}
         <div className="px-6 py-5 border-b border-slate-100">
@@ -56,6 +85,7 @@ export default function Layout({ children }: LayoutProps) {
             <Link
               key={link.to}
               to={link.to}
+              onClick={() => setSidebarOpen(false)}
               className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                 location.pathname === link.to
                   ? 'bg-blue-50 text-blue-700'
@@ -78,7 +108,7 @@ export default function Layout({ children }: LayoutProps) {
           </div>
           <button
             onClick={logout}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
           >
             <IconLogout />
             Cerrar sesión
@@ -88,9 +118,24 @@ export default function Layout({ children }: LayoutProps) {
       </aside>
 
       {/* ── Contenido de la página ── */}
-      <main className="flex-1 overflow-y-auto">
-        {children}
-      </main>
+      <div className="flex-1 min-w-0 flex flex-col">
+
+        {/* Barra superior móvil */}
+        <header className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 bg-white md:hidden">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Abrir menú"
+            className="w-11 h-11 -ml-2 flex items-center justify-center rounded-lg text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
+          >
+            <IconMenu />
+          </button>
+          <span className="text-sm font-bold text-blue-700 tracking-tight">Inventario App</span>
+        </header>
+
+        <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
+          {children}
+        </main>
+      </div>
 
     </div>
   )

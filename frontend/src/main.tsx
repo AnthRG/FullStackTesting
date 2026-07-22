@@ -7,6 +7,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import LoginPage from './pages/LoginPage'
 import HomePage from './pages/HomePage'
 import ProductsPage from './pages/ProductsPage'
+import MovementsPage from './pages/MovementsPage'
 
 
 
@@ -31,6 +32,14 @@ createRoot(document.getElementById('root')!).render(
             element={
               <ProtectedRoute>
                 <ProductsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/movements"
+            element={
+              <ProtectedRoute>
+                <MovementsPage />
               </ProtectedRoute>
             }
           />
