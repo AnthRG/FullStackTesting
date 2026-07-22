@@ -17,7 +17,8 @@ public class JpaAuditingConfig {
     public AuditorAware<String> auditorAware() {
         return () -> {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            return Optional.of(auth != null ? auth.getName() : "system");
+            String name = (auth != null) ? auth.getName() : null;
+            return Optional.of(name != null ? name : "system");
         };
     }
 }

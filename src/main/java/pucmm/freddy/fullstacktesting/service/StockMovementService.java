@@ -79,7 +79,8 @@ public class StockMovementService {
 
     private String currentUser() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        return auth != null ? auth.getName() : "system";
+        String name = (auth != null) ? auth.getName() : null;
+        return name != null ? name : "system";
     }
 
 }

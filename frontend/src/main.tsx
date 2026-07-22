@@ -10,6 +10,7 @@ import ProductsPage from './pages/ProductsPage'
 import MovementsPage from './pages/MovementsPage'
 import ReportsPage from './pages/ReportsPage'
 import UsersPage from './pages/UsersPage'
+import AuditPage from './pages/AuditPage'
 
 
 
@@ -58,6 +59,14 @@ createRoot(document.getElementById('root')!).render(
             element={
               <ProtectedRoute>
                 <UsersPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/audit"
+            element={
+              <ProtectedRoute>
+                <AuditPage />
               </ProtectedRoute>
             }
           />
