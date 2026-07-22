@@ -37,6 +37,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/products/**").hasRole("product:manage")
                 .requestMatchers(HttpMethod.GET, "/api/stock-movements/**").hasRole("product:view")
                 .requestMatchers("/api/stock-movements/**").hasRole("product:manage")
+                .requestMatchers("/api/reports/**").hasRole("product:view")
                 .anyRequest().authenticated())
             .oauth2ResourceServer(oauth2 -> oauth2
                 .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));

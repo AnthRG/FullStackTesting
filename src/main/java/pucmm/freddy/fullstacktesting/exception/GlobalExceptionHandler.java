@@ -30,6 +30,12 @@ public class GlobalExceptionHandler {
     ProblemDetail handleInsufficientStock(InsufficientStockException ex){
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
     }
+
+    @ExceptionHandler(InvalidDateRangeException.class)
+    ProblemDetail handleInvalidDateRange(InvalidDateRangeException ex){
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ProblemDetail handleValidationErrors(MethodArgumentNotValidException ex){
         Map<String, String> errors = ex.getBindingResult().getFieldErrors().stream()

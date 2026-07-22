@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { listProducts } from '../productsApi'
-import type { Product } from '../productsApi'
+import { getLowStockProducts, getReportSummary, getTopProducts } from '../reportsApi'
+import type { LowStockProduct, ReportSummary, TopProduct } from '../reportsApi'
 import { listMovements } from '../stockMovementsApi'
 import type { MovementType, StockMovement } from '../stockMovementsApi'
 import Layout from '../components/Layout'
 
 const TOKEN_KEY = 'access_token'
+const CRITICAL_PREVIEW_LIMIT = 5
+const TOP_PRODUCTS_PREVIEW_LIMIT = 5
 
 const TYPE_BADGES: Record<MovementType, { label: string; classes: string }> = {
   IN: { label: 'Entrada', classes: 'bg-emerald-50 text-emerald-700' },
@@ -29,10 +31,6 @@ function formatQuantity(type: MovementType, quantity: number): string {
 
 function formatShortDate(iso: string): string {
   return new Date(iso).toLocaleString('es-DO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
-}
-
-function isCritical(p: Product): boolean {
-  return p.quantity <= p.minimumStock
 }
 
 function IconBox() {
@@ -96,33 +94,73 @@ export default function HomePage() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
 
-  const [products, setProducts] = useState<Product[]>([])
-  const [productsTotal, setProductsTotal] = useState(0)
-  const [productsLoading, setProductsLoading] = useState(false)
-  const [productsError, setProductsError] = useState('')
+  const [summary, setSummary] = useState<ReportSummary | null>(null)
+  const [summaryLoading, setSummaryLoading] = useState(false)
+  const [summaryError, setSummaryError] = useState('')
+
+  const [lowStock, setLowStock] = useState<LowStockProduct[]>([])
+  const [lowStockLoading, setLowStockLoading] = useState(false)
+  const [lowStockError, setLowStockError] = useState('')
+
+  const [topProducts, setTopProducts] = useState<TopProduct[]>([])
+  const [topLoading, setTopLoading] = useState(false)
+  const [topError, setTopError] = useState('')
 
   const [recentMovements, setRecentMovements] = useState<StockMovement[]>([])
-  const [movementsTotal, setMovementsTotal] = useState(0)
   const [movementsLoading, setMovementsLoading] = useState(false)
   const [movementsError, setMovementsError] = useState('')
 
-  const loadProducts = useCallback(async () => {
-    const token = localStorage.getItem(TOKEN_KEY) ?? ''
-    setProductsLoading(true)
-    setProductsError('')
-    try {
-      // Límite conocido: solo evalúa los primeros 100 productos (ordenados por cantidad) para el cálculo de críticos.
-      const data = await listProducts(token, { page: 0, size: 100, sort: 'quantity,asc' })
-      setProducts(data.content)
-      setProductsTotal(data.totalElements)
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : ''
-      if (msg.includes('401')) { logout(); navigate('/login', { replace: true }) }
-      else setProductsError('No se pudo cargar el resumen de productos.')
-    } finally {
-      setProductsLoading(false)
+  const handleUnauthorized = useCallback((err: unknown): boolean => {
+    const msg = err instanceof Error ? err.message : ''
+    if (msg.includes('401')) {
+      logout()
+      navigate('/login', { replace: true })
+      return true
     }
+    return false
   }, [logout, navigate])
+
+  const loadSummary = useCallback(async () => {
+    const token = localStorage.getItem(TOKEN_KEY) ?? ''
+    setSummaryLoading(true)
+    setSummaryError('')
+    try {
+      const data = await getReportSummary(token)
+      setSummary(data)
+    } catch (err) {
+      if (!handleUnauthorized(err)) setSummaryError('No se pudo cargar el resumen.')
+    } finally {
+      setSummaryLoading(false)
+    }
+  }, [handleUnauthorized])
+
+  const loadLowStock = useCallback(async () => {
+    const token = localStorage.getItem(TOKEN_KEY) ?? ''
+    setLowStockLoading(true)
+    setLowStockError('')
+    try {
+      const data = await getLowStockProducts(token)
+      setLowStock(data.slice(0, CRITICAL_PREVIEW_LIMIT))
+    } catch (err) {
+      if (!handleUnauthorized(err)) setLowStockError('No se pudo cargar el resumen de productos.')
+    } finally {
+      setLowStockLoading(false)
+    }
+  }, [handleUnauthorized])
+
+  const loadTopProducts = useCallback(async () => {
+    const token = localStorage.getItem(TOKEN_KEY) ?? ''
+    setTopLoading(true)
+    setTopError('')
+    try {
+      const data = await getTopProducts(token, TOP_PRODUCTS_PREVIEW_LIMIT)
+      setTopProducts(data)
+    } catch (err) {
+      if (!handleUnauthorized(err)) setTopError('No se pudo cargar el ranking de más vendidos.')
+    } finally {
+      setTopLoading(false)
+    }
+  }, [handleUnauthorized])
 
   const loadMovements = useCallback(async () => {
     const token = localStorage.getItem(TOKEN_KEY) ?? ''
@@ -131,24 +169,20 @@ export default function HomePage() {
     try {
       const data = await listMovements(token, { size: 5 })
       setRecentMovements(data.content)
-      setMovementsTotal(data.totalElements)
     } catch (err) {
-      const msg = err instanceof Error ? err.message : ''
-      if (msg.includes('401')) { logout(); navigate('/login', { replace: true }) }
-      else setMovementsError('No se pudo cargar el historial reciente.')
+      if (!handleUnauthorized(err)) setMovementsError('No se pudo cargar el historial reciente.')
     } finally {
       setMovementsLoading(false)
     }
-  }, [logout, navigate])
+  }, [handleUnauthorized])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount es el patrón estándar de carga de datos
-    loadProducts()
+    loadSummary()
+    loadLowStock()
+    loadTopProducts()
     loadMovements()
-  }, [loadProducts, loadMovements])
-
-  const criticalProducts = products.filter(isCritical)
-  const topCritical = criticalProducts.slice(0, 5)
+  }, [loadSummary, loadLowStock, loadTopProducts, loadMovements])
 
   return (
     <Layout>
@@ -161,38 +195,42 @@ export default function HomePage() {
         </div>
 
         {/* ── Stat cards ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          <StatCard icon={<IconBox />} label="Productos" value={productsTotal} loading={productsLoading} />
-          <StatCard icon={<IconWarning />} label="Productos críticos" value={criticalProducts.length} loading={productsLoading} />
-          <StatCard icon={<IconMovements />} label="Movimientos" value={movementsTotal} loading={movementsLoading} />
-        </div>
+        {summaryError ? (
+          <p className="mb-8 rounded-2xl border border-red-100 bg-red-50 px-5 py-4 text-sm text-red-600">{summaryError}</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+            <StatCard icon={<IconBox />} label="Productos" value={summary?.totalProducts ?? 0} loading={summaryLoading} />
+            <StatCard icon={<IconWarning />} label="Productos críticos" value={summary?.criticalProducts ?? 0} loading={summaryLoading} />
+            <StatCard icon={<IconMovements />} label="Movimientos" value={summary?.totalMovements ?? 0} loading={summaryLoading} />
+          </div>
+        )}
 
         {/* ── Widgets ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
 
           {/* Productos críticos */}
           <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-100">
               <h2 className="text-sm font-semibold text-slate-900">Productos críticos</h2>
             </div>
-            {productsLoading && (
+            {lowStockLoading && (
               <div className="px-5 py-10 text-center text-sm text-slate-300">Cargando…</div>
             )}
-            {!productsLoading && productsError && (
-              <p className="px-5 py-6 text-sm text-red-500">{productsError}</p>
+            {!lowStockLoading && lowStockError && (
+              <p className="px-5 py-6 text-sm text-red-500">{lowStockError}</p>
             )}
-            {!productsLoading && !productsError && topCritical.length === 0 && (
+            {!lowStockLoading && !lowStockError && lowStock.length === 0 && (
               <div className="mx-5 my-5 flex items-center gap-3 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
                 <IconCheck />
                 Todo el stock por encima del mínimo.
               </div>
             )}
-            {!productsLoading && !productsError && topCritical.length > 0 && (
+            {!lowStockLoading && !lowStockError && lowStock.length > 0 && (
               <ul className="divide-y divide-slate-100">
-                {topCritical.map(p => (
-                  <li key={p.id}>
+                {lowStock.map(p => (
+                  <li key={p.productId}>
                     <Link
-                      to={`/movements?productId=${p.id}`}
+                      to={`/movements?productId=${p.productId}`}
                       className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-blue-50 transition-colors"
                     >
                       <div className="min-w-0">
@@ -200,11 +238,46 @@ export default function HomePage() {
                         <p className="text-xs text-slate-400 font-mono">{p.sku}</p>
                       </div>
                       <span className={`shrink-0 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        p.quantity === p.minimumStock ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700'
+                        p.deficit > 0 ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
                       }`}>
                         {p.quantity} / mín {p.minimumStock}
                       </span>
                     </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Más vendidos */}
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-slate-900">Más vendidos</h2>
+              <Link to="/reports" className="text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors">
+                Ver reporte →
+              </Link>
+            </div>
+            {topLoading && (
+              <div className="px-5 py-10 text-center text-sm text-slate-300">Cargando…</div>
+            )}
+            {!topLoading && topError && (
+              <p className="px-5 py-6 text-sm text-red-500">{topError}</p>
+            )}
+            {!topLoading && !topError && topProducts.length === 0 && (
+              <p className="px-5 py-10 text-center text-sm text-slate-300">Aún no hay salidas de stock registradas.</p>
+            )}
+            {!topLoading && !topError && topProducts.length > 0 && (
+              <ul className="divide-y divide-slate-100">
+                {topProducts.map((p, i) => (
+                  <li key={p.productId} className="flex items-center justify-between gap-3 px-5 py-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="shrink-0 w-5 text-xs font-semibold text-slate-400 tabular-nums">{i + 1}</span>
+                      <div className="min-w-0">
+                        <p className="font-medium text-slate-900 truncate text-sm">{p.productName}</p>
+                        <p className="text-xs text-slate-400 font-mono">{p.productSku}</p>
+                      </div>
+                    </div>
+                    <p className="shrink-0 text-sm font-medium text-slate-900 tabular-nums">{p.unitsOut} un.</p>
                   </li>
                 ))}
               </ul>
