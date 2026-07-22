@@ -10,6 +10,7 @@ public class UsernameRevisionListener implements RevisionListener {
     public void newRevision(Object revisionEntity) {
         AuditRevision revision = (AuditRevision) revisionEntity;
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        revision.setUsername(auth != null ? auth.getName() : "system");
+        String name = (auth != null) ? auth.getName() : null;
+        revision.setUsername(name != null ? name : "system");
     }
 }
