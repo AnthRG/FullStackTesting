@@ -51,14 +51,14 @@ function errorMessage(status: number, detail?: string): string {
 }
 
 export async function listProducts(token: string, params: {
-  search?: string; status?: ProductStatus | ''; page?: number
+  search?: string; status?: ProductStatus | ''; page?: number; size?: number; sort?: string
 } = {}): Promise<ProductPage> {
   const q = new URLSearchParams()
   if (params.search) q.set('search', params.search)
   if (params.status) q.set('status', params.status)
   q.set('page', String(params.page ?? 0))
-  q.set('size', '10')
-  q.set('sort', 'createdAt,desc')
+  q.set('size', String(params.size ?? 10))
+  q.set('sort', params.sort ?? 'createdAt,desc')
   const res = await fetch(`${API_URL}/api/products?${q}`, { headers: auth(token) })
   if (!res.ok) {
     const body = await res.json().catch(() => ({})) as { detail?: string }

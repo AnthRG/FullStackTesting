@@ -1,6 +1,6 @@
+import { useState, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import type { ReactNode } from 'react'
 
 function IconHome() {
   return (
@@ -18,6 +18,22 @@ function IconBox() {
   )
 }
 
+function IconMovements() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 7.5 7.5 3m0 0L12 7.5M7.5 3v13.5m13.5 0L16.5 21m0 0L12 16.5m4.5 4.5V7.5" />
+    </svg>
+  )
+}
+
+function IconUsers() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+    </svg>
+  )
+}
+
 function IconLogout() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -26,10 +42,13 @@ function IconLogout() {
   )
 }
 
-const navLinks = [
-  { to: '/',         label: 'Inicio',    icon: <IconHome /> },
-  { to: '/products', label: 'Productos', icon: <IconBox /> },
-]
+function IconMenu() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" />
+    </svg>
+  )
+}
 
 interface LayoutProps {
   children: ReactNode
@@ -38,12 +57,33 @@ interface LayoutProps {
 export default function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuth()
   const location = useLocation()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  const navLinks = [
+    { to: '/',          label: 'Inicio',      icon: <IconHome /> },
+    { to: '/products',  label: 'Productos',   icon: <IconBox /> },
+    { to: '/movements', label: 'Movimientos', icon: <IconMovements /> },
+    ...(user?.roles?.includes('VIEW_ROLES')
+      ? [{ to: '/users', label: 'Usuarios', icon: <IconUsers /> }]
+      : []),
+  ]
 
   return (
     <div className="flex h-screen bg-slate-50">
 
+      {/* ── Overlay móvil ── */}
+      {sidebarOpen && (
+        <button
+          onClick={() => setSidebarOpen(false)}
+          aria-label="Cerrar menú"
+          className="fixed inset-0 z-20 bg-slate-900/40 cursor-pointer md:hidden"
+        />
+      )}
+
       {/* ── Sidebar ── */}
-      <aside className="w-56 shrink-0 flex flex-col bg-white border-r border-slate-200">
+      <aside className={`fixed inset-y-0 left-0 z-30 w-56 shrink-0 flex flex-col bg-white border-r border-slate-200 transition-transform duration-300 ease-out md:static md:translate-x-0 ${
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}>
 
         {/* Logo */}
         <div className="px-6 py-5 border-b border-slate-100">
@@ -56,6 +96,7 @@ export default function Layout({ children }: LayoutProps) {
             <Link
               key={link.to}
               to={link.to}
+              onClick={() => setSidebarOpen(false)}
               className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                 location.pathname === link.to
                   ? 'bg-blue-50 text-blue-700'
@@ -78,7 +119,7 @@ export default function Layout({ children }: LayoutProps) {
           </div>
           <button
             onClick={logout}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
           >
             <IconLogout />
             Cerrar sesión
@@ -88,9 +129,24 @@ export default function Layout({ children }: LayoutProps) {
       </aside>
 
       {/* ── Contenido de la página ── */}
-      <main className="flex-1 overflow-y-auto">
-        {children}
-      </main>
+      <div className="flex-1 min-w-0 flex flex-col">
+
+        {/* Barra superior móvil */}
+        <header className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 bg-white md:hidden">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Abrir menú"
+            className="w-11 h-11 -ml-2 flex items-center justify-center rounded-lg text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
+          >
+            <IconMenu />
+          </button>
+          <span className="text-sm font-bold text-blue-700 tracking-tight">Inventario App</span>
+        </header>
+
+        <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
+          {children}
+        </main>
+      </div>
 
     </div>
   )
