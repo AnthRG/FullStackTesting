@@ -1,6 +1,8 @@
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { useNotifications } from '../notifications/NotificationsContext'
+import NotificationsPanel from './NotificationsPanel'
 
 function IconHome() {
   return (
@@ -66,6 +68,56 @@ function IconMenu() {
   )
 }
 
+function IconBell() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
+    </svg>
+  )
+}
+
+function NotificationsBell({ className = '' }: { className?: string }) {
+  const { unreadCount } = useNotifications()
+  const [open, setOpen] = useState(false)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+
+  return (
+    <div className={`relative shrink-0 ${className}`}>
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={() => setOpen(value => !value)}
+        aria-label={`Notificaciones${unreadCount > 0 ? `, ${unreadCount} sin leer` : ''}`}
+        aria-haspopup="true"
+        aria-expanded={open}
+        className="relative w-11 h-11 -mr-2 flex items-center justify-center rounded-lg text-slate-500 hover:text-blue-700 hover:bg-blue-50 transition-colors cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 focus-visible:outline-offset-2"
+      >
+        <IconBell />
+        {unreadCount > 0 && (
+          <span
+            aria-hidden="true"
+            className="absolute -top-0.5 -right-0.5 min-w-[1.1rem] h-[1.1rem] px-1 flex items-center justify-center rounded-full bg-red-600 text-white text-[10px] font-semibold leading-none"
+          >
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        )}
+      </button>
+      <span className="sr-only" aria-live="polite">
+        {unreadCount > 0 ? `${unreadCount} notificaciones sin leer` : 'Sin notificaciones sin leer'}
+      </span>
+      {open && (
+        <NotificationsPanel
+          anchorRef={buttonRef}
+          onClose={() => {
+            setOpen(false)
+            buttonRef.current?.focus()
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
 interface LayoutProps {
   children: ReactNode
 }
@@ -103,9 +155,10 @@ export default function Layout({ children }: LayoutProps) {
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
 
-        {/* Logo */}
-        <div className="px-6 py-5 border-b border-slate-100">
+        {/* Logo + notificaciones */}
+        <div className="relative px-6 py-5 border-b border-slate-100 flex items-center justify-between gap-2">
           <span className="text-base font-bold text-blue-700 tracking-tight">Inventario App</span>
+          <NotificationsBell className="hidden md:block" />
         </div>
 
         {/* Links de navegación */}
@@ -159,6 +212,7 @@ export default function Layout({ children }: LayoutProps) {
             <IconMenu />
           </button>
           <span className="text-sm font-bold text-blue-700 tracking-tight">Inventario App</span>
+          <NotificationsBell className="ml-auto" />
         </header>
 
         <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
