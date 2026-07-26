@@ -7,6 +7,10 @@ const BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:5173'
 const BACKEND_URL = process.env.E2E_BACKEND_URL ?? 'http://localhost:8080'
 const KEYCLOAK_URL = process.env.E2E_KEYCLOAK_URL ?? 'http://localhost:8081'
 
+// cmd.exe no entiende './gradlew': el wrapper de Windows es un .bat aparte y hay que
+// invocarlo con la ruta relativa explicita.
+const GRADLEW = process.platform === 'win32' ? '.\\gradlew.bat' : './gradlew'
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
@@ -33,13 +37,22 @@ export default defineConfig({
       timeout: 120_000,
     },
     {
-      command: 'docker compose up -d --wait db && SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5440/fullstacktesting ./gradlew bootRun',
+      // El datasource va en `env` y no como prefijo `VAR=valor` del comando: esa sintaxis
+      // es de shells POSIX y en Windows falla con "is not recognized as an internal or
+      // external command", asi que la suite solo arrancaba en CI.
+      command: `docker compose up -d --wait db && ${GRADLEW} bootRun`,
+      env: {
+        SPRING_DATASOURCE_URL: `jdbc:postgresql://localhost:${process.env.POSTGRES_PORT ?? '5440'}/fullstacktesting`,
+      },
       url: `${BACKEND_URL}/actuator/health`,
       reuseExistingServer: true,
       timeout: 180_000,
     },
     {
-      command: 'npm run dev --prefix frontend',
+      // Con `--prefix` npm cambia de proyecto pero no mete frontend/node_modules/.bin en
+      // el PATH, asi que 'vite' no se resuelve. `cwd` si arranca dentro del subproyecto.
+      command: 'npm run dev',
+      cwd: 'frontend',
       url: BASE_URL,
       reuseExistingServer: true,
       timeout: 120_000,
