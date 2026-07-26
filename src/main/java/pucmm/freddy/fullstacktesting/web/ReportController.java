@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import pucmm.freddy.fullstacktesting.dto.InventorySummaryResponse;
 import pucmm.freddy.fullstacktesting.dto.LowStockProductResponse;
@@ -19,6 +20,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/reports")
 @RequiredArgsConstructor
+@PreAuthorize("hasAuthority('report:view')")
 @Tag(name = "Reportes", description = "Reportes y métricas de solo lectura derivadas del inventario")
 
 public class ReportController {

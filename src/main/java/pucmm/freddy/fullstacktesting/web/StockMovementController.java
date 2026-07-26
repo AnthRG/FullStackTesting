@@ -10,6 +10,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import pucmm.freddy.fullstacktesting.domain.MovementType;
 import pucmm.freddy.fullstacktesting.dto.StockMovementRequest;
@@ -27,6 +28,7 @@ public class StockMovementController {
     private final StockMovementService service;
 
     @GetMapping
+    @PreAuthorize("hasAuthority('stock:view')")
     public Page<StockMovementResponse> list(
             @RequestParam(required = false) Long productId,
             @RequestParam(required = false) MovementType movementType,
@@ -35,12 +37,14 @@ public class StockMovementController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('stock:view')")
     public StockMovementResponse getById(@PathVariable Long id) {
         return service.findById(id);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAuthority('stock:manage')")
     @Operation(summary = "Registra un movimiento de stock",
             description = "IN suma al stock, OUT resta (falla con 409 si no hay suficiente) y "
                     + "ADJUSTMENT fija la cantidad exacta. Actualiza el producto y guarda el historial.")
