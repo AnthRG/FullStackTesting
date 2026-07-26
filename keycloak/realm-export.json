@@ -108,8 +108,8 @@
       "enabled": true,
       "emailVerified": true,
       "email": "operator@example.com",
-      "firstName": "Olga",
-      "lastName": "Operadora",
+      "firstName": "Opera",
+      "lastName": "Dor",
       "credentials": [{ "type": "password", "value": "operator", "temporary": false }],
       "realmRoles": ["INVENTORY_OPERATOR"]
     },
@@ -118,8 +118,8 @@
       "enabled": true,
       "emailVerified": true,
       "email": "auditor@example.com",
-      "firstName": "Aura",
-      "lastName": "Auditora",
+      "firstName": "Audi",
+      "lastName": "Tor",
       "credentials": [{ "type": "password", "value": "auditor", "temporary": false }],
       "realmRoles": ["AUDITOR"]
     }
