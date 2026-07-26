@@ -8,6 +8,7 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
@@ -17,6 +18,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 @Configuration
 @EnableMethodSecurity
@@ -55,8 +57,16 @@ public class SecurityConfig {
             @SuppressWarnings("unchecked")
             List<String> roles = (List<String>) realmAccess.get("roles");
             if (roles == null) return List.of();
+            // Keycloak expande los roles composite al emitir el token, asi que aqui llegan
+            // tanto los roles de negocio (INVENTORY_ADMIN) como los permisos que agrupan
+            // (product:manage, stock:view, ...). Cada uno se convierte en dos authorities:
+            //   "product:view"      -> forma canonica, la que consultan los @PreAuthorize
+            //   "ROLE_product:view" -> alias legacy que necesita hasRole(), se elimina
+            //                          cuando todos los endpoints usen hasAuthority()
             return roles.stream()
-                    .map(role -> (org.springframework.security.core.GrantedAuthority) new SimpleGrantedAuthority("ROLE_" + role))
+                    .flatMap(role -> Stream.<GrantedAuthority>of(
+                            new SimpleGrantedAuthority(role),
+                            new SimpleGrantedAuthority("ROLE_" + role)))
                     .toList();
         });
         return converter;
