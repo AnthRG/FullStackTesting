@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { deleteProduct, listProducts } from '../productsApi'
 import type { Product, ProductStatus } from '../productsApi'
@@ -12,13 +12,14 @@ const TOKEN_KEY = 'access_token'
 export default function ProductsPage() {
   const { logout } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
   const [products, setProducts] = useState<Product[]>([])
   const [totalElements, setTotalElements] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [page, setPage] = useState(0)
-  const [searchInput, setSearchInput] = useState('')
-  const [search, setSearch] = useState('')
+  const [searchInput, setSearchInput] = useState(() => searchParams.get('search') ?? '')
+  const [search, setSearch] = useState(() => searchParams.get('search') ?? '')
   const [statusFilter, setStatusFilter] = useState<ProductStatus | ''>('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -51,6 +52,16 @@ export default function ProductsPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-filter-change es el patrón estándar de carga de datos
     load()
   }, [load])
+
+  // Llegar a /products?search=<sku> con la página ya montada (p.ej. otra notificación)
+  // no la remonta, así que el filtro se sincroniza desde la URL.
+  useEffect(() => {
+    const fromUrl = searchParams.get('search') ?? ''
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sincronizar estado con la URL requiere setState en efecto
+    setSearchInput(fromUrl)
+    setSearch(fromUrl)
+    setPage(0)
+  }, [searchParams])
 
   function handleSearch(e: FormEvent) {
     e.preventDefault()
