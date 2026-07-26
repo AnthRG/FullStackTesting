@@ -24,11 +24,15 @@ class JwtAuthoritiesConverterTest {
     private final SecurityConfig config = new SecurityConfig();
 
     @Test
-    @DisplayName("cada rol del realm produce la authority canonica y el alias ROLE_")
-    void cadaRolProduceLasDosFormas() {
+    @DisplayName("cada rol del realm produce una authority con su nombre tal cual, sin prefijo")
+    void cadaRolProduceSuAuthoritySinPrefijo() {
         Collection<String> authorities = authoritiesOf("product:view");
 
-        assertThat(authorities).containsExactlyInAnyOrder("product:view", "ROLE_product:view");
+        // Sin "ROLE_" el metodo hasRole() deja de funcionar, y eso es justo lo que se busca:
+        // obliga a que toda la autorizacion pase por hasAuthority('<permiso>').
+        assertThat(authorities)
+                .containsExactly("product:view")
+                .doesNotContain("ROLE_product:view");
     }
 
     @Test

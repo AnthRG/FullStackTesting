@@ -3,7 +3,6 @@ package pucmm.freddy.fullstacktesting.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -18,7 +17,6 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Stream;
 
 @Configuration
 @EnableMethodSecurity
@@ -34,13 +32,15 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/prometheus").permitAll()
                 .requestMatchers("/error").permitAll()
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
-                .requestMatchers("/api/admin/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/products/**").hasRole("product:view")
-                .requestMatchers("/api/products/**").hasRole("product:manage")
-                .requestMatchers(HttpMethod.GET, "/api/stock-movements/**").hasRole("product:view")
-                .requestMatchers("/api/stock-movements/**").hasRole("product:manage")
-                .requestMatchers("/api/reports/**").hasRole("product:view")
-                .requestMatchers("/api/audit/**").hasRole("product:view")
+                // Red de seguridad por modulo: quien no tiene nada que hacer en un modulo
+                // no entra ni al primer metodo. La decision fina (ver vs gestionar) vive
+                // en los @PreAuthorize de cada operacion del controller correspondiente.
+                .requestMatchers("/api/auth/me").authenticated()
+                .requestMatchers("/api/admin/**").hasAuthority("user:manage")
+                .requestMatchers("/api/products/**").hasAnyAuthority("product:view", "product:manage")
+                .requestMatchers("/api/stock-movements/**").hasAnyAuthority("stock:view", "stock:manage")
+                .requestMatchers("/api/reports/**").hasAuthority("report:view")
+                .requestMatchers("/api/audit/**").hasAuthority("audit:view")
                 .anyRequest().authenticated())
             .oauth2ResourceServer(oauth2 -> oauth2
                 .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
@@ -59,14 +59,14 @@ public class SecurityConfig {
             if (roles == null) return List.of();
             // Keycloak expande los roles composite al emitir el token, asi que aqui llegan
             // tanto los roles de negocio (INVENTORY_ADMIN) como los permisos que agrupan
-            // (product:manage, stock:view, ...). Cada uno se convierte en dos authorities:
-            //   "product:view"      -> forma canonica, la que consultan los @PreAuthorize
-            //   "ROLE_product:view" -> alias legacy que necesita hasRole(), se elimina
-            //                          cuando todos los endpoints usen hasAuthority()
+            // (product:manage, stock:view, ...), y cada uno se convierte en una authority
+            // con su nombre tal cual.
+            //
+            // Sin prefijo "ROLE_" a proposito: la autorizacion se decide por permiso, con
+            // hasAuthority('stock:manage'), nunca por nombre de rol. Anadir el prefijo
+            // reactivaria hasRole() y con el la tentacion de volver a validar por rol.
             return roles.stream()
-                    .flatMap(role -> Stream.<GrantedAuthority>of(
-                            new SimpleGrantedAuthority(role),
-                            new SimpleGrantedAuthority("ROLE_" + role)))
+                    .map(role -> (GrantedAuthority) new SimpleGrantedAuthority(role))
                     .toList();
         });
         return converter;
