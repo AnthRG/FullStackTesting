@@ -32,11 +32,15 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/prometheus").permitAll()
                 .requestMatchers("/error").permitAll()
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                // El navegador no puede mandar el header Authorization al abrir un WebSocket:
+                // la autenticacion real ocurre en el handshake (ver BearerSubprotocolHandshakeInterceptor).
+                .requestMatchers("/ws/**").permitAll()
                 .requestMatchers("/api/admin/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/products/**").hasRole("product:view")
                 .requestMatchers("/api/products/**").hasRole("product:manage")
                 .requestMatchers(HttpMethod.GET, "/api/stock-movements/**").hasRole("product:view")
                 .requestMatchers("/api/stock-movements/**").hasRole("product:manage")
+                .requestMatchers("/api/notifications/**").hasRole("product:view")
                 .requestMatchers("/api/reports/**").hasRole("product:view")
                 .requestMatchers("/api/audit/**").hasRole("product:view")
                 .anyRequest().authenticated())
