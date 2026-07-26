@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { KeycloakTokenParsed } from 'keycloak-js'
 import type { User } from '../api'
 import keycloak, { initKeycloak, ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY } from './keycloak'
@@ -6,6 +6,14 @@ import keycloak, { initKeycloak, ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY } from './k
 interface AuthState {
   user: User | null
   loading: boolean
+  /**
+   * Indica si el usuario tiene un permiso concreto (`product:manage`, `audit:view`, ...).
+   *
+   * Sirve solo para la experiencia de uso: esconde controles que de todos modos fallarian.
+   * Quien decide de verdad es el backend, con el `@PreAuthorize` de cada operacion; este
+   * chequeo vive en el navegador y cualquiera puede saltarselo.
+   */
+  hasPermission: (permission: string) => boolean
   login: () => void
   logout: () => void
 }
@@ -30,6 +38,9 @@ function currentUser(): User | null {
   return {
     username: claims.preferred_username ?? '',
     email: claims.email ?? null,
+    // Keycloak expande los roles composite al firmar el token, asi que aqui vienen tanto
+    // los roles de negocio (INVENTORY_OPERATOR) como los permisos que agrupan
+    // (stock:manage, report:view, ...). Por eso basta con buscar el permiso en esta lista.
     roles: claims.realm_access?.roles ?? [],
   }
 }
@@ -76,6 +87,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const hasPermission = useCallback(
+    (permission: string) => user?.roles?.includes(permission) ?? false,
+    [user],
+  )
+
   const login = () => {
     initKeycloak().then(() => keycloak.login())
   }
@@ -86,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, hasPermission, login, logout }}>
       {children}
     </AuthContext.Provider>
   )
