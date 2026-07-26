@@ -1,8 +1,8 @@
 import { useState, type FormEvent, type ChangeEvent } from 'react'
 import type { Product, ProductRequest } from '../productsApi'
 import { createProduct, updateProduct } from '../productsApi'
+import { getFreshToken } from '../auth/keycloak'
 
-const TOKEN_KEY = 'access_token'
 
 function initialForm(product: Product | null): ProductRequest {
   if (!product) {
@@ -41,7 +41,7 @@ export default function ProductModal({ product, onClose, onSaved }: Props) {
     e.preventDefault()
     setError('')
     setSubmitting(true)
-    const token = localStorage.getItem(TOKEN_KEY) ?? ''
+    const token = await getFreshToken()
     try {
       if (product) await updateProduct(token, product.id, form)
       else await createProduct(token, form)

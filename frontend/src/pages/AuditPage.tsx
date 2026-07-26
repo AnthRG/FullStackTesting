@@ -5,8 +5,8 @@ import { listAuditFeed } from '../auditApi'
 import type { AuditFeedItem, RevisionType } from '../auditApi'
 import ProductHistoryModal from '../components/ProductHistoryModal'
 import Layout from '../components/Layout'
+import { getFreshToken } from '../auth/keycloak'
 
-const TOKEN_KEY = 'access_token'
 
 const REVISION_BADGES: Record<RevisionType, { label: string; classes: string }> = {
   CREATE: { label: 'Creado', classes: 'bg-emerald-50 text-emerald-700' },
@@ -39,7 +39,7 @@ export default function AuditPage() {
   const [selected, setSelected] = useState<Selected | null>(null)
 
   const load = useCallback(async () => {
-    const token = localStorage.getItem(TOKEN_KEY) ?? ''
+    const token = await getFreshToken()
     setLoading(true)
     setError('')
     try {

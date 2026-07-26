@@ -6,8 +6,8 @@ import type { LowStockProduct, ReportSummary, TopProduct } from '../reportsApi'
 import { listMovements } from '../stockMovementsApi'
 import type { MovementType, StockMovement } from '../stockMovementsApi'
 import Layout from '../components/Layout'
+import { getFreshToken } from '../auth/keycloak'
 
-const TOKEN_KEY = 'access_token'
 const CRITICAL_PREVIEW_LIMIT = 5
 const TOP_PRODUCTS_PREVIEW_LIMIT = 5
 
@@ -121,7 +121,7 @@ export default function HomePage() {
   }, [logout, navigate])
 
   const loadSummary = useCallback(async () => {
-    const token = localStorage.getItem(TOKEN_KEY) ?? ''
+    const token = await getFreshToken()
     setSummaryLoading(true)
     setSummaryError('')
     try {
@@ -135,7 +135,7 @@ export default function HomePage() {
   }, [handleUnauthorized])
 
   const loadLowStock = useCallback(async () => {
-    const token = localStorage.getItem(TOKEN_KEY) ?? ''
+    const token = await getFreshToken()
     setLowStockLoading(true)
     setLowStockError('')
     try {
@@ -149,7 +149,7 @@ export default function HomePage() {
   }, [handleUnauthorized])
 
   const loadTopProducts = useCallback(async () => {
-    const token = localStorage.getItem(TOKEN_KEY) ?? ''
+    const token = await getFreshToken()
     setTopLoading(true)
     setTopError('')
     try {
@@ -163,7 +163,7 @@ export default function HomePage() {
   }, [handleUnauthorized])
 
   const loadMovements = useCallback(async () => {
-    const token = localStorage.getItem(TOKEN_KEY) ?? ''
+    const token = await getFreshToken()
     setMovementsLoading(true)
     setMovementsError('')
     try {

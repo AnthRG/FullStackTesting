@@ -6,8 +6,8 @@ import type { Product, ProductStatus } from '../productsApi'
 import ProductModal from '../components/ProductModal'
 import ProductHistoryModal from '../components/ProductHistoryModal'
 import Layout from '../components/Layout'
+import { getFreshToken } from '../auth/keycloak'
 
-const TOKEN_KEY = 'access_token'
 
 export default function ProductsPage() {
   const { logout, hasPermission } = useAuth()
@@ -33,7 +33,7 @@ export default function ProductsPage() {
   const [historyProduct, setHistoryProduct] = useState<Product | null>(null)
 
   const load = useCallback(async () => {
-    const token = localStorage.getItem(TOKEN_KEY) ?? ''
+    const token = await getFreshToken()
     setLoading(true)
     setError('')
     try {
@@ -78,7 +78,7 @@ export default function ProductsPage() {
 
   async function handleDelete() {
     if (deleteId == null) return
-    const token = localStorage.getItem(TOKEN_KEY) ?? ''
+    const token = await getFreshToken()
     setDeleting(true)
     try {
       await deleteProduct(token, deleteId)

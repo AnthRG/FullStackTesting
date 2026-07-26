@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { listProductRevisions } from '../auditApi'
 import type { ProductRevision, ProductSnapshot, RevisionType } from '../auditApi'
+import { getFreshToken } from '../auth/keycloak'
 
-const TOKEN_KEY = 'access_token'
 
 const REVISION_BADGES: Record<RevisionType, { label: string; badgeClasses: string; dotClasses: string }> = {
   CREATE: { label: 'Creado', badgeClasses: 'bg-emerald-50 text-emerald-700', dotClasses: 'bg-emerald-500' },
@@ -100,7 +100,7 @@ export default function ProductHistoryModal({ productId, productName, onClose }:
   const [error, setError] = useState('')
 
   const load = useCallback(async () => {
-    const token = localStorage.getItem(TOKEN_KEY) ?? ''
+    const token = await getFreshToken()
     setLoading(true)
     setError('')
     try {

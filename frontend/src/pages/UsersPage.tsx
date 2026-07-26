@@ -4,12 +4,12 @@ import { useAuth } from '../auth/AuthContext'
 import { assignRole, listRoles, listUsers, removeRole } from '../adminApi'
 import type { Role, UserWithRoles } from '../adminApi'
 import Layout from '../components/Layout'
+import { getFreshToken } from '../auth/keycloak'
 
 // El gating de esta página es solo UX: oculta controles según el token.
 // La protección real está en el backend, donde UserRolesController exige user:manage
 // en los cinco endpoints de /api/admin/** (ver AuthorizationIT).
 
-const TOKEN_KEY = 'access_token'
 
 function IconLock() {
   return (
@@ -60,7 +60,7 @@ export default function UsersPage() {
 
   const load = useCallback(async () => {
     if (!canView) return
-    const token = localStorage.getItem(TOKEN_KEY) ?? ''
+    const token = await getFreshToken()
     setLoading(true)
     setError('')
     try {
@@ -84,7 +84,7 @@ export default function UsersPage() {
   async function handleAssign(userId: string) {
     const role = addSelections[userId]
     if (!role) return
-    const token = localStorage.getItem(TOKEN_KEY) ?? ''
+    const token = await getFreshToken()
     const key = `${userId}:${role}`
     setPending(key)
     setActionError('')
@@ -100,7 +100,7 @@ export default function UsersPage() {
   }
 
   async function handleRemove(userId: string, role: string) {
-    const token = localStorage.getItem(TOKEN_KEY) ?? ''
+    const token = await getFreshToken()
     const key = `${userId}:${role}`
     setPending(key)
     setActionError('')
