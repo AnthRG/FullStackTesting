@@ -6,6 +6,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.handler.SessionLimitExceededException;
 import pucmm.freddy.fullstacktesting.domain.NotificationType;
 import pucmm.freddy.fullstacktesting.dto.NotificationResponse;
 import pucmm.freddy.fullstacktesting.dto.SocketMessage;
@@ -127,6 +128,21 @@ class NotificationWebSocketHandlerTest {
         handler.broadcast(alerta());
 
         assertThat(handler.openSessions()).isZero();
+    }
+
+    @Test
+    void broadcast_cuandoLaSesionSeAtasca_laDescartaYSigueConLasDemas() throws IOException {
+        WebSocketSession lenta = openSession("lenta");
+        doThrow(new SessionLimitExceededException("send time limit", CloseStatus.NO_STATUS_CODE))
+                .when(lenta).sendMessage(any());
+        WebSocketSession sana = openSession("sana");
+        handler.afterConnectionEstablished(lenta);
+        handler.afterConnectionEstablished(sana);
+
+        handler.broadcast(alerta());
+
+        verify(sana).sendMessage(any(TextMessage.class));
+        assertThat(handler.openSessions()).isEqualTo(1);
     }
 
     @Test

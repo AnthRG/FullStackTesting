@@ -16,6 +16,7 @@ import pucmm.freddy.fullstacktesting.dto.NotificationResponse;
 import pucmm.freddy.fullstacktesting.exception.NotificationNotFoundException;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 /**
@@ -86,14 +87,14 @@ public class NotificationService {
                 .orElseThrow(() -> new NotificationNotFoundException(id));
         if (!notification.isRead()) {
             notification.setRead(true);
-            notification.setReadAt(LocalDateTime.now());
+            notification.setReadAt(LocalDateTime.now(ZoneId.systemDefault()));
             repository.save(notification);
         }
     }
 
     @Transactional
     public void markAllRead() {
-        repository.markAllRead(LocalDateTime.now());
+        repository.markAllRead(LocalDateTime.now(ZoneId.systemDefault()));
     }
 
     @Transactional(readOnly = true)
