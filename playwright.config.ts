@@ -37,9 +37,7 @@ export default defineConfig({
       timeout: 120_000,
     },
     {
-      // El datasource va en `env` y no como prefijo `VAR=valor` del comando: esa sintaxis
-      // es de shells POSIX y en Windows falla con "is not recognized as an internal or
-      // external command", asi que la suite solo arrancaba en CI.
+      
       command: `docker compose up -d --wait db && ${GRADLEW} bootRun`,
       env: {
         SPRING_DATASOURCE_URL: `jdbc:postgresql://localhost:${process.env.POSTGRES_PORT ?? '5440'}/fullstacktesting`,
@@ -49,8 +47,7 @@ export default defineConfig({
       timeout: 180_000,
     },
     {
-      // Con `--prefix` npm cambia de proyecto pero no mete frontend/node_modules/.bin en
-      // el PATH, asi que 'vite' no se resuelve. `cwd` si arranca dentro del subproyecto.
+     
       command: 'npm run dev',
       cwd: 'frontend',
       url: BASE_URL,

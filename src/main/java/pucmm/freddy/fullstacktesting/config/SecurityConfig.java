@@ -62,9 +62,7 @@ public class SecurityConfig {
             // (product:manage, stock:view, ...), y cada uno se convierte en una authority
             // con su nombre tal cual.
             //
-            // Sin prefijo "ROLE_" a proposito: la autorizacion se decide por permiso, con
-            // hasAuthority('stock:manage'), nunca por nombre de rol. Anadir el prefijo
-            // reactivaria hasRole() y con el la tentacion de volver a validar por rol.
+            // 
             return roles.stream()
                     .map(role -> (GrantedAuthority) new SimpleGrantedAuthority(role))
                     .toList();

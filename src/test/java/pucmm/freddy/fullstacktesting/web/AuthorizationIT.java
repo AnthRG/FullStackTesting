@@ -33,8 +33,6 @@ class AuthorizationIT extends AbstractIntegrationTest {
     @LocalServerPort
     private int port;
 
-    // ---------- sin token: 401, nunca 403 ----------
-
     @Test
     @DisplayName("sin token, listar productos responde 401")
     void sinToken_productos_401() {
@@ -44,7 +42,7 @@ class AuthorizationIT extends AbstractIntegrationTest {
     @Test
     @DisplayName("sin token, la administracion de usuarios responde 401")
     void sinToken_admin_401() {
-        // Este es el agujero que cerramos: /api/admin/** estaba en permitAll(),
+        //cerramos: /api/admin/** estaba en permitAll(),
         // asi que la gestion de usuarios y roles de Keycloak era publica.
         assertThat(get("/api/admin/users", null)).isEqualTo(401);
     }
