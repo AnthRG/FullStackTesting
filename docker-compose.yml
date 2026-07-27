@@ -48,6 +48,12 @@ services:
       KEYCLOAK_ADMIN_SERVER_URL: ${KEYCLOAK_ADMIN_SERVER_URL:-http://keycloak:8080}
       KEYCLOAK_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      METRICS_NAMESPACE: ${METRICS_NAMESPACE:-local}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-fullstacktesting-backend}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://alloy:4317}
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_RESOURCE_ATTRIBUTES: service.namespace=${METRICS_NAMESPACE:-local}
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     depends_on:
@@ -72,6 +78,13 @@ services:
 
   prometheus:
     image: prom/prometheus:v3.1.0
+    # remote-write recibe lo que empujan Alloy y el generador de metricas de Tempo;
+    # exemplar-storage es lo que permite saltar de una grafica a su traza.
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-remote-write-receiver
+      - --enable-feature=exemplar-storage
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - promdata:/prometheus
@@ -79,6 +92,47 @@ services:
       - "${PROMETHEUS_PORT:-9090}:9090"
     depends_on:
       - backend
+    networks:
+      - spring
+
+  loki:
+    image: grafana/loki:3.3.2
+    command: -config.file=/etc/loki/loki-config.yml
+    volumes:
+      - ./monitoring/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - lokidata:/loki
+    ports:
+      - "${LOKI_PORT:-3100}:3100"
+    networks:
+      - spring
+
+  tempo:
+    image: grafana/tempo:2.7.0
+    command: -config.file=/etc/tempo/tempo-config.yml
+    volumes:
+      - ./monitoring/tempo/tempo-config.yml:/etc/tempo/tempo-config.yml:ro
+      - tempodata:/var/tempo
+    ports:
+      - "${TEMPO_PORT:-3200}:3200"
+    networks:
+      - spring
+
+  alloy:
+    image: grafana/alloy:v1.5.1
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloydata:/var/lib/alloy/data
+    ports:
+      - "${ALLOY_PORT:-12345}:12345"
+    depends_on:
+      - loki
+      - tempo
     networks:
       - spring
 
@@ -101,6 +155,9 @@ volumes:
   pgdata:
   promdata:
   grafanadata:
+  lokidata:
+  tempodata:
+  alloydata:
 
 networks:
   spring:
