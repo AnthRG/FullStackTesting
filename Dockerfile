@@ -14,8 +14,6 @@ FROM eclipse-temurin:25-jre
 WORKDIR /app
 COPY --from=build /app/build/libs/*.jar app.jar
 
-# Agente de OpenTelemetry: instrumenta Spring MVC, JDBC y JPA sin tocar el codigo.
-# Queda inerte mientras OTEL_EXPORTER_OTLP_ENDPOINT no apunte a ningun colector.
 ADD https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.30.0/opentelemetry-javaagent.jar /app/otel-agent.jar
 ENV JAVA_TOOL_OPTIONS="-javaagent:/app/otel-agent.jar"
 ENV OTEL_TRACES_EXPORTER=none \

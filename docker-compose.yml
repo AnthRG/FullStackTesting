@@ -78,8 +78,6 @@ services:
 
   prometheus:
     image: prom/prometheus:v3.1.0
-    # remote-write recibe lo que empujan Alloy y el generador de metricas de Tempo;
-    # exemplar-storage es lo que permite saltar de una grafica a su traza.
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus

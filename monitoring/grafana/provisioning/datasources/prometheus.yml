@@ -7,7 +7,6 @@ datasources:
     url: http://prometheus:9090
     isDefault: true
     jsonData:
-      # Salta de un pico en una grafica a la traza concreta que lo provoco.
       exemplarTraceIdDestinations:
         - name: trace_id
           datasourceUid: tempo

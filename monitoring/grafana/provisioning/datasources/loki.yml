@@ -6,8 +6,6 @@ datasources:
     access: proxy
     url: http://loki:3100
     jsonData:
-      # Convierte el traceId que aparece en la linea de log en un enlace a Tempo.
-      # El doble $ es obligatorio: Grafana interpola variables de entorno en provisioning.
       derivedFields:
         - name: TraceID
           matcherRegex: '([0-9a-f]{32})'
