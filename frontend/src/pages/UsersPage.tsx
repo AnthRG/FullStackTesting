@@ -4,11 +4,12 @@ import { useAuth } from '../auth/AuthContext'
 import { assignRole, listRoles, listUsers, removeRole } from '../adminApi'
 import type { Role, UserWithRoles } from '../adminApi'
 import Layout from '../components/Layout'
+import { getFreshToken } from '../auth/keycloak'
 
-// El gating por roles en esta página es solo UX (oculta controles según el token).
-// La protección real depende del backend: hoy /api/admin/** está en permitAll — fix pendiente.
+// El gating de esta página es solo UX: oculta controles según el token.
+// La protección real está en el backend, donde UserRolesController exige user:manage
+// en los cinco endpoints de /api/admin/** (ver AuthorizationIT).
 
-const TOKEN_KEY = 'access_token'
 
 function IconLock() {
   return (
@@ -26,18 +27,26 @@ function IconX({ className = 'w-3 h-3' }: { className?: string }) {
   )
 }
 
+// Un color por modulo, y los roles de negocio (los que no llevan ':') destacados aparte,
+// para que se vea de un vistazo la diferencia entre un rol y los permisos que agrupa.
 function roleChipClasses(role: string): string {
-  return role.startsWith('product:')
-    ? 'bg-violet-50 text-violet-700'
-    : 'bg-amber-50 text-amber-700'
+  if (!role.includes(':')) return 'bg-blue-100 text-blue-800 font-semibold'
+  if (role.startsWith('product:')) return 'bg-violet-50 text-violet-700'
+  if (role.startsWith('stock:')) return 'bg-emerald-50 text-emerald-700'
+  if (role.startsWith('report:')) return 'bg-sky-50 text-sky-700'
+  if (role.startsWith('audit:')) return 'bg-orange-50 text-orange-700'
+  if (role.startsWith('user:')) return 'bg-rose-50 text-rose-700'
+  return 'bg-amber-50 text-amber-700'
 }
 
 export default function UsersPage() {
-  const { user, logout } = useAuth()
+  const { user, logout, hasPermission } = useAuth()
   const navigate = useNavigate()
 
-  const canView = user?.roles?.includes('VIEW_ROLES') ?? false
-  const canEdit = user?.roles?.includes('EDIT_ROLES') ?? false
+  // Los cinco endpoints de /api/admin/** exigen el mismo permiso, asi que ver y editar
+  // no se separan: quien puede entrar puede administrar.
+  const canView = hasPermission('user:manage')
+  const canEdit = canView
 
   const [users, setUsers] = useState<UserWithRoles[]>([])
   const [roles, setRoles] = useState<Role[]>([])
@@ -51,7 +60,7 @@ export default function UsersPage() {
 
   const load = useCallback(async () => {
     if (!canView) return
-    const token = localStorage.getItem(TOKEN_KEY) ?? ''
+    const token = await getFreshToken()
     setLoading(true)
     setError('')
     try {
@@ -75,7 +84,7 @@ export default function UsersPage() {
   async function handleAssign(userId: string) {
     const role = addSelections[userId]
     if (!role) return
-    const token = localStorage.getItem(TOKEN_KEY) ?? ''
+    const token = await getFreshToken()
     const key = `${userId}:${role}`
     setPending(key)
     setActionError('')
@@ -91,7 +100,7 @@ export default function UsersPage() {
   }
 
   async function handleRemove(userId: string, role: string) {
-    const token = localStorage.getItem(TOKEN_KEY) ?? ''
+    const token = await getFreshToken()
     const key = `${userId}:${role}`
     setPending(key)
     setActionError('')
@@ -115,7 +124,7 @@ export default function UsersPage() {
               <IconLock />
             </div>
             <h1 className="text-lg font-semibold text-slate-900">No tienes permiso para ver esta sección</h1>
-            <p className="text-sm text-slate-400 max-w-sm">Se requiere el rol VIEW_ROLES para acceder a la administración de usuarios.</p>
+            <p className="text-sm text-slate-400 max-w-sm">Se requiere el permiso user:manage para acceder a la administración de usuarios.</p>
           </div>
         </div>
       </Layout>

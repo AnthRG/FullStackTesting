@@ -3,11 +3,11 @@ package pucmm.freddy.fullstacktesting.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
@@ -35,14 +35,16 @@ public class SecurityConfig {
                 // El navegador no puede mandar el header Authorization al abrir un WebSocket:
                 // la autenticacion real ocurre en el handshake (ver BearerSubprotocolHandshakeInterceptor).
                 .requestMatchers("/ws/**").permitAll()
-                .requestMatchers("/api/admin/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/products/**").hasRole("product:view")
-                .requestMatchers("/api/products/**").hasRole("product:manage")
-                .requestMatchers(HttpMethod.GET, "/api/stock-movements/**").hasRole("product:view")
-                .requestMatchers("/api/stock-movements/**").hasRole("product:manage")
-                .requestMatchers("/api/notifications/**").hasRole("product:view")
-                .requestMatchers("/api/reports/**").hasRole("product:view")
-                .requestMatchers("/api/audit/**").hasRole("product:view")
+                // Red de seguridad por modulo: quien no tiene nada que hacer en un modulo
+                // no entra ni al primer metodo. La decision fina (ver vs gestionar) vive
+                // en los @PreAuthorize de cada operacion del controller correspondiente.
+                .requestMatchers("/api/auth/me").authenticated()
+                .requestMatchers("/api/admin/**").hasAuthority("user:manage")
+                .requestMatchers("/api/products/**").hasAnyAuthority("product:view", "product:manage")
+                .requestMatchers("/api/stock-movements/**").hasAnyAuthority("stock:view", "stock:manage")
+                .requestMatchers("/api/notifications/**").hasAuthority("product:view")
+                .requestMatchers("/api/reports/**").hasAuthority("report:view")
+                .requestMatchers("/api/audit/**").hasAuthority("audit:view")
                 .anyRequest().authenticated())
             .oauth2ResourceServer(oauth2 -> oauth2
                 .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
@@ -59,8 +61,14 @@ public class SecurityConfig {
             @SuppressWarnings("unchecked")
             List<String> roles = (List<String>) realmAccess.get("roles");
             if (roles == null) return List.of();
+            // Keycloak expande los roles composite al emitir el token, asi que aqui llegan
+            // tanto los roles de negocio (INVENTORY_ADMIN) como los permisos que agrupan
+            // (product:manage, stock:view, ...), y cada uno se convierte en una authority
+            // con su nombre tal cual.
+            //
+            // 
             return roles.stream()
-                    .map(role -> (org.springframework.security.core.GrantedAuthority) new SimpleGrantedAuthority("ROLE_" + role))
+                    .map(role -> (GrantedAuthority) new SimpleGrantedAuthority(role))
                     .toList();
         });
         return converter;

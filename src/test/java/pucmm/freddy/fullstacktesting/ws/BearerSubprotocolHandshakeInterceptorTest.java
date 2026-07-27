@@ -80,11 +80,11 @@ class BearerSubprotocolHandshakeInterceptorTest {
     }
 
     @Test
-    void beforeHandshake_conTokenValidoYRolProductView_aceptaYGuardaElUsuario() throws Exception {
+    void beforeHandshake_conTokenValidoYPermisoProductView_aceptaYGuardaElUsuario() throws Exception {
         withProtocolHeader("bearer, el-token");
         Jwt jwt = jwt();
         when(jwtDecoder.decode("el-token")).thenReturn(jwt);
-        withAuthorities(jwt, "ROLE_product:view", "ROLE_product:manage");
+        withAuthorities(jwt, "product:view", "product:manage");
 
         assertThat(handshake()).isTrue();
         assertThat(attributes).containsEntry(
@@ -97,7 +97,7 @@ class BearerSubprotocolHandshakeInterceptorTest {
         withProtocolHeader("bearer", "el-token");
         Jwt jwt = jwt();
         when(jwtDecoder.decode("el-token")).thenReturn(jwt);
-        withAuthorities(jwt, "ROLE_product:view");
+        withAuthorities(jwt, "product:view");
 
         assertThat(handshake()).isTrue();
     }
@@ -140,11 +140,11 @@ class BearerSubprotocolHandshakeInterceptorTest {
     }
 
     @Test
-    void beforeHandshake_conTokenValidoSinElRol_rechazaCon403() throws Exception {
+    void beforeHandshake_conTokenValidoSinElPermiso_rechazaCon403() throws Exception {
         withProtocolHeader("bearer, el-token");
         Jwt jwt = jwt();
         when(jwtDecoder.decode("el-token")).thenReturn(jwt);
-        withAuthorities(jwt, "ROLE_VIEW_ROLES");
+        withAuthorities(jwt, "VIEW_ROLES");
 
         assertThat(handshake()).isFalse();
         verify(response).setStatusCode(HttpStatus.FORBIDDEN);

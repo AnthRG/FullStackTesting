@@ -35,7 +35,10 @@ function wsUrl(): string {
 }
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth()
+  const { user, hasPermission } = useAuth()
+  // Las alertas exigen product:view igual que el resto del modulo: sin ese permiso el
+  // REST responde 403 y el handshake del WebSocket tambien, asi que ni se intenta.
+  const canSeeAlerts = hasPermission('product:view')
   const [data, setData] = useState<NotificationsData>({ items: [], unreadCount: 0 })
   const [connected, setConnected] = useState(false)
 
@@ -88,18 +91,18 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   // Carga inicial (y en cada login) por REST.
   useEffect(() => {
-    if (!user) {
+    if (!user || !canSeeAlerts) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- reset al cerrar sesión, sincroniza con el estado de auth
       setData({ items: [], unreadCount: 0 })
       return
     }
     reload()
-  }, [user, reload])
+  }, [user, canSeeAlerts, reload])
 
   // Conexión WebSocket con reconexión automática por backoff exponencial acotado (1s -> 30s).
   useEffect(() => {
     const token = localStorage.getItem(TOKEN_KEY)
-    if (!user || !token) {
+    if (!user || !token || !canSeeAlerts) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- sincroniza el indicador de conexión con el estado de auth
       setConnected(false)
       return
@@ -161,7 +164,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       socketRef.current = null
       setConnected(false)
     }
-  }, [user])
+  }, [user, canSeeAlerts])
 
   return (
     <NotificationsContext.Provider value={{ ...data, connected, markRead, markAllRead, reload }}>

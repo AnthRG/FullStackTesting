@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.data.domain.Page;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import pucmm.freddy.fullstacktesting.dto.ProductAuditFeedItem;
 import pucmm.freddy.fullstacktesting.dto.ProductRevisionResponse;
@@ -16,6 +17,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/audit")
 @RequiredArgsConstructor
+@PreAuthorize("hasAuthority('audit:view')")
 @Tag(name = "Auditoría", description = "Historial de cambios de productos registrado por Hibernate Envers")
 
 public class AuditController {

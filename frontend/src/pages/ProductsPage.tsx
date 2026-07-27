@@ -6,13 +6,16 @@ import type { Product, ProductStatus } from '../productsApi'
 import ProductModal from '../components/ProductModal'
 import ProductHistoryModal from '../components/ProductHistoryModal'
 import Layout from '../components/Layout'
+import { getFreshToken } from '../auth/keycloak'
 
-const TOKEN_KEY = 'access_token'
 
 export default function ProductsPage() {
-  const { logout } = useAuth()
+  const { logout, hasPermission } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+
+  const canManage = hasPermission('product:manage')
+  const canSeeHistory = hasPermission('audit:view')
 
   const [products, setProducts] = useState<Product[]>([])
   const [totalElements, setTotalElements] = useState(0)
@@ -31,7 +34,7 @@ export default function ProductsPage() {
   const [historyProduct, setHistoryProduct] = useState<Product | null>(null)
 
   const load = useCallback(async () => {
-    const token = localStorage.getItem(TOKEN_KEY) ?? ''
+    const token = await getFreshToken()
     setLoading(true)
     setError('')
     try {
@@ -86,7 +89,7 @@ export default function ProductsPage() {
 
   async function handleDelete() {
     if (deleteId == null) return
-    const token = localStorage.getItem(TOKEN_KEY) ?? ''
+    const token = await getFreshToken()
     setDeleting(true)
     try {
       await deleteProduct(token, deleteId)
@@ -111,15 +114,17 @@ export default function ProductsPage() {
               <p className="text-sm text-slate-400 mt-0.5">{totalElements} productos en total</p>
             )}
           </div>
-          <button
-            onClick={openCreate}
-            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-            Nuevo producto
-          </button>
+          {canManage && (
+            <button
+              onClick={openCreate}
+              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              Nuevo producto
+            </button>
+          )}
         </div>
 
         {/* Filtros */}
@@ -221,27 +226,37 @@ export default function ProductsPage() {
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-3">
-                          <button
-                            onClick={() => setHistoryProduct(p)}
-                            aria-label={`Ver historial de ${p.name}`}
-                            className="text-slate-300 hover:text-blue-600 transition cursor-pointer"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => openEdit(p)}
-                            className="text-xs font-medium text-blue-600 hover:text-blue-800 transition"
-                          >
-                            Editar
-                          </button>
-                          <button
-                            onClick={() => setDeleteId(p.id)}
-                            className="text-xs font-medium text-slate-300 hover:text-red-500 transition"
-                          >
-                            Eliminar
-                          </button>
+                          {/* El historial lee /api/audit/**, que exige audit:view aparte */}
+                          {canSeeHistory && (
+                            <button
+                              onClick={() => setHistoryProduct(p)}
+                              aria-label={`Ver historial de ${p.name}`}
+                              className="text-slate-300 hover:text-blue-600 transition cursor-pointer"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                              </svg>
+                            </button>
+                          )}
+                          {canManage && (
+                            <>
+                              <button
+                                onClick={() => openEdit(p)}
+                                className="text-xs font-medium text-blue-600 hover:text-blue-800 transition"
+                              >
+                                Editar
+                              </button>
+                              <button
+                                onClick={() => setDeleteId(p.id)}
+                                className="text-xs font-medium text-slate-300 hover:text-red-500 transition"
+                              >
+                                Eliminar
+                              </button>
+                            </>
+                          )}
+                          {!canManage && !canSeeHistory && (
+                            <span className="text-xs text-slate-300">Solo lectura</span>
+                          )}
                         </span>
                       )}
                     </td>

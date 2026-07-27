@@ -5,6 +5,7 @@ import java.util.List;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,13 +21,10 @@ import pucmm.freddy.fullstacktesting.service.KeycloakAdminClient;
 /**
  * Administracion de los roles de los usuarios contra Keycloak.
  *
- * <p><b>SIN PROTEGER por ahora</b> (ver {@code SecurityConfig}, donde
- * {@code /api/admin/**} esta en {@code permitAll}). Antes de produccion estos
- * endpoints deben exigir los permisos del negocio:
- * <ul>
- *   <li>lectura ({@code GET}) → {@code @PreAuthorize("hasRole('VIEW_ROLES')")}</li>
- *   <li>escritura ({@code POST}/{@code DELETE}) → {@code @PreAuthorize("hasRole('EDIT_ROLES')")}</li>
- * </ul>
+ * <p>Todo el controller exige {@code user:manage}. La anotacion va aqui y no en
+ * {@link KeycloakAdminClient} a proposito: el service se usa tambien desde tests y
+ * desde procesos internos que no tienen un usuario autenticado detras, asi que la
+ * autorizacion pertenece al borde HTTP.
  *
  * <p>Las firmas usan records (DTOs) y verbos/estados HTTP estandar, de modo que
  * agregar OpenAPI/Swagger (springdoc) despues no requiera reescribir nada: solo
@@ -34,6 +32,7 @@ import pucmm.freddy.fullstacktesting.service.KeycloakAdminClient;
  */
 @RestController
 @RequestMapping("/api/admin")
+@PreAuthorize("hasAuthority('user:manage')")
 @Tag(name = "Admin · Roles de usuario",
         description = "Consulta y edicion de los roles de los usuarios en Keycloak")
 public class UserRolesController {

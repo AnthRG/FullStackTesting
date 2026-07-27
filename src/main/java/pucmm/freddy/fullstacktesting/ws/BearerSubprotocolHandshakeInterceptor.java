@@ -27,8 +27,8 @@ import java.util.Map;
  * WebSocket, y meter el token en la URL lo dejaría en logs e historial. El cliente
  * lo manda entonces como subprotocolo: {@code new WebSocket(url, ['bearer', token])},
  * que viaja en {@code Sec-WebSocket-Protocol}. Aquí se toma el segundo valor, se
- * valida con el mismo {@link JwtDecoder} del resource server y se exige
- * {@code product:view} usando el mismo mapeo de roles que SecurityConfig.</p>
+ * valida con el mismo {@link JwtDecoder} del resource server y se exige el permiso
+ * {@code product:view} usando el mismo mapeo de authorities que SecurityConfig.</p>
  */
 @Component
 @RequiredArgsConstructor
@@ -38,7 +38,7 @@ public class BearerSubprotocolHandshakeInterceptor implements HandshakeIntercept
     public static final String BEARER_PROTOCOL = "bearer";
     public static final String USERNAME_ATTRIBUTE = "username";
 
-    private static final String REQUIRED_AUTHORITY = "ROLE_product:view";
+    private static final String REQUIRED_AUTHORITY = "product:view";
 
     private final JwtDecoder jwtDecoder;
     private final JwtAuthenticationConverter jwtAuthenticationConverter;
