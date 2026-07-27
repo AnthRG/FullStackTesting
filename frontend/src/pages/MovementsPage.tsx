@@ -4,8 +4,8 @@ import { useAuth } from '../auth/AuthContext'
 import { listMovements } from '../stockMovementsApi'
 import type { MovementType, StockMovement } from '../stockMovementsApi'
 import Layout from '../components/Layout'
+import { getFreshToken } from '../auth/keycloak'
 
-const TOKEN_KEY = 'access_token'
 
 const TYPE_BADGES: Record<MovementType, { label: string; classes: string }> = {
   IN: { label: 'Entrada', classes: 'bg-emerald-50 text-emerald-700' },
@@ -48,7 +48,7 @@ export default function MovementsPage() {
   const [error, setError] = useState('')
 
   const load = useCallback(async () => {
-    const token = localStorage.getItem(TOKEN_KEY) ?? ''
+    const token = await getFreshToken()
     setLoading(true)
     setError('')
     try {

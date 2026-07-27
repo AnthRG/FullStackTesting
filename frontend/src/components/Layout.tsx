@@ -71,20 +71,21 @@ interface LayoutProps {
 }
 
 export default function Layout({ children }: LayoutProps) {
-  const { user, logout } = useAuth()
+  const { user, logout, hasPermission } = useAuth()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
+  // Cada seccion se muestra solo si el usuario tiene el permiso que su API exige, de modo
+  // que nadie llegue a una pantalla que solo le puede devolver un 403. El permiso es el
+  // mismo que valida el backend en el @PreAuthorize del controller correspondiente.
   const navLinks = [
-    { to: '/',          label: 'Inicio',      icon: <IconHome /> },
-    { to: '/products',  label: 'Productos',   icon: <IconBox /> },
-    { to: '/movements', label: 'Movimientos', icon: <IconMovements /> },
-    { to: '/reports',   label: 'Reportes',    icon: <IconChartBar /> },
-    { to: '/audit',     label: 'Auditoría',   icon: <IconClipboardList /> },
-    ...(user?.roles?.includes('VIEW_ROLES')
-      ? [{ to: '/users', label: 'Usuarios', icon: <IconUsers /> }]
-      : []),
-  ]
+    { to: '/',          label: 'Inicio',      icon: <IconHome />,          permission: null },
+    { to: '/products',  label: 'Productos',   icon: <IconBox />,           permission: 'product:view' },
+    { to: '/movements', label: 'Movimientos', icon: <IconMovements />,     permission: 'stock:view' },
+    { to: '/reports',   label: 'Reportes',    icon: <IconChartBar />,      permission: 'report:view' },
+    { to: '/audit',     label: 'Auditoría',   icon: <IconClipboardList />, permission: 'audit:view' },
+    { to: '/users',     label: 'Usuarios',    icon: <IconUsers />,         permission: 'user:manage' },
+  ].filter(link => link.permission === null || hasPermission(link.permission))
 
   return (
     <div className="flex h-screen bg-slate-50">

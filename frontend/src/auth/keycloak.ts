@@ -23,4 +23,24 @@ export function initKeycloak(): Promise<boolean> {
   return initPromise
 }
 
+/**
+ * Devuelve un access token vigente, renovandolo si esta por vencer.
+ *
+ * Leer `localStorage` directamente entrega el token que habia en el ultimo render, que
+ * con `accessTokenLifespan` en 5 minutos puede estar vencido: el backend responde 401 y
+ * la sesion se cae aunque el refresh token siguiera siendo valido.
+ *
+ * `updateToken(30)` renueva solo si al token le quedan menos de 30 segundos, asi que
+ * llamarlo en cada peticion es barato. Si la renovacion falla (refresh token vencido o
+ * revocado) se devuelve lo que haya y se deja que el 401 dispare el logout de la pagina.
+ */
+export async function getFreshToken(): Promise<string> {
+  try {
+    await keycloak.updateToken(30)
+  } catch {
+    /* el 401 de la peticion se encarga de cerrar la sesion */
+  }
+  return keycloak.token ?? localStorage.getItem(ACCESS_TOKEN_KEY) ?? ''
+}
+
 export default keycloak

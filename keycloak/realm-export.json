@@ -4,13 +4,54 @@
   "sslRequired": "none",
   "registrationAllowed": false,
   "loginWithEmailAllowed": true,
-  "accessTokenLifespan": 700,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 28800,
+  "offlineSessionIdleTimeout": 2592000,
+  "revokeRefreshToken": false,
+  "refreshTokenMaxReuse": 0,
   "roles": {
     "realm": [
-      { "name": "VIEW_ROLES",     "description": "Puede ver los roles de los usuarios" },
-      { "name": "EDIT_ROLES",     "description": "Puede editar/remover los roles de los usuarios" },
-      { "name": "product:view",   "description": "Ver productos del inventario" },
-      { "name": "product:manage", "description": "Crear, editar y eliminar productos" }
+      { "name": "VIEW_ROLES",     "description": "[legacy] Puede ver los roles de los usuarios" },
+      { "name": "EDIT_ROLES",     "description": "[legacy] Puede editar/remover los roles de los usuarios" },
+
+      { "name": "product:view",   "description": "Permiso: ver productos del inventario" },
+      { "name": "product:manage", "description": "Permiso: crear, editar y eliminar productos" },
+      { "name": "stock:view",     "description": "Permiso: ver existencia e historial de movimientos" },
+      { "name": "stock:manage",   "description": "Permiso: registrar entradas, salidas y ajustes" },
+      { "name": "report:view",    "description": "Permiso: ver reportes y dashboard" },
+      { "name": "user:manage",    "description": "Permiso: gestionar usuarios, roles y permisos" },
+      { "name": "audit:view",     "description": "Permiso: consultar la auditoria del sistema" },
+
+      {
+        "name": "INVENTORY_VIEWER",
+        "description": "Rol: solo lectura de inventario y reportes",
+        "composite": true,
+        "composites": { "realm": ["product:view", "stock:view", "report:view"] }
+      },
+      {
+        "name": "INVENTORY_OPERATOR",
+        "description": "Rol: opera el inventario (productos y movimientos de stock)",
+        "composite": true,
+        "composites": {
+          "realm": ["product:view", "product:manage", "stock:view", "stock:manage", "report:view"]
+        }
+      },
+      {
+        "name": "AUDITOR",
+        "description": "Rol: consulta auditoria y reportes, sin modificar nada",
+        "composite": true,
+        "composites": { "realm": ["audit:view", "report:view", "product:view", "stock:view"] }
+      },
+      {
+        "name": "INVENTORY_ADMIN",
+        "description": "Rol: todos los permisos del sistema",
+        "composite": true,
+        "composites": {
+          "realm": ["product:view", "product:manage", "stock:view", "stock:manage",
+                    "report:view", "audit:view", "user:manage"]
+        }
+      }
     ]
   },
   "clients": [
@@ -40,7 +81,7 @@
       "firstName": "Admin",
       "lastName": "User",
       "credentials": [{ "type": "password", "value": "admin", "temporary": false }],
-      "realmRoles": ["VIEW_ROLES", "EDIT_ROLES", "product:view", "product:manage"]
+      "realmRoles": ["VIEW_ROLES", "EDIT_ROLES", "product:view", "product:manage", "INVENTORY_ADMIN"]
     },
     {
       "username": "user1",
@@ -50,7 +91,7 @@
       "firstName": "User",
       "lastName": "Uno",
       "credentials": [{ "type": "password", "value": "user1", "temporary": false }],
-      "realmRoles": ["VIEW_ROLES", "product:view"]
+      "realmRoles": ["VIEW_ROLES", "product:view", "INVENTORY_VIEWER"]
     },
     {
       "username": "user2",
@@ -61,6 +102,26 @@
       "lastName": "Dos",
       "credentials": [{ "type": "password", "value": "user2", "temporary": false }],
       "realmRoles": []
+    },
+    {
+      "username": "operator",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "operator@example.com",
+      "firstName": "Opera",
+      "lastName": "Dor",
+      "credentials": [{ "type": "password", "value": "operator", "temporary": false }],
+      "realmRoles": ["INVENTORY_OPERATOR"]
+    },
+    {
+      "username": "auditor",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "auditor@example.com",
+      "firstName": "Audi",
+      "lastName": "Tor",
+      "credentials": [{ "type": "password", "value": "auditor", "temporary": false }],
+      "realmRoles": ["AUDITOR"]
     }
   ]
 }
