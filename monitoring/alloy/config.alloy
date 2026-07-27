@@ -1,11 +1,7 @@
-// ─────────────── LOGS: contenedores de docker → Loki ───────────────
-
 discovery.docker "contenedores" {
   host = "unix:///var/run/docker.sock"
 }
 
-// Las etiquetas de Loki nacen aqui, no en la aplicacion: se derivan de los
-// metadatos que docker expone de cada contenedor.
 discovery.relabel "contenedores" {
   targets = discovery.docker.contenedores.targets
 
@@ -34,8 +30,6 @@ loki.write "default" {
   }
 }
 
-// ─────────────── TRAZAS: aplicacion → Tempo ───────────────
-
 otelcol.receiver.otlp "entrada" {
   grpc {
     endpoint = "0.0.0.0:4317"
@@ -46,7 +40,57 @@ otelcol.receiver.otlp "entrada" {
   }
 
   output {
-    traces = [otelcol.processor.batch.default.input]
+    traces = [
+      otelcol.connector.spanmetrics.default.input,
+      otelcol.processor.batch.default.input,
+    ]
+  }
+}
+
+otelcol.connector.spanmetrics "default" {
+  namespace = "traces.span.metrics"
+
+  histogram {
+    unit = "ms"
+
+    explicit {
+      buckets = ["5ms", "10ms", "25ms", "50ms", "100ms", "250ms", "500ms", "1s", "2.5s", "5s", "10s"]
+    }
+  }
+
+  dimension {
+    name = "http.route"
+  }
+
+  dimension {
+    name = "http.request.method"
+  }
+
+  dimension {
+    name = "http.response.status_code"
+  }
+
+  output {
+    metrics = [otelcol.exporter.prometheus.default.input]
+  }
+}
+
+otelcol.exporter.prometheus "default" {
+  forward_to = [prometheus.relabel.spanmetrics.receiver]
+}
+
+prometheus.relabel "spanmetrics" {
+  forward_to = [prometheus.remote_write.default.receiver]
+
+  rule {
+    source_labels = ["http_response_status_code"]
+    target_label  = "http_status_code"
+  }
+}
+
+prometheus.remote_write "default" {
+  endpoint {
+    url = "http://prometheus:9090/api/v1/write"
   }
 }
 
