@@ -1,8 +1,7 @@
 # Base neutral: define los servicios y su cableado interno. No publica puertos ni
 # construye imagenes: eso lo aporta el override de cada entorno. Nunca se usa sola.
-#   dev     : -f docker-compose.yml -f docker-compose.dev.yml
-#   staging : -f docker-compose.yml -f docker-compose.staging.yml
-#   prod    : -f docker-compose.yml -f docker-compose.prod.yml
+#   dev            : -f docker-compose.yml -f docker-compose.dev.yml
+#   staging y prod : -f docker-compose.yml -f docker-compose.deploy.yml
 
 services:
   db:
