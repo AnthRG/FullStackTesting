@@ -8,7 +8,12 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:report": "playwright show-report",
-    "test:e2e:local": "E2E_BASE_URL=http://localhost:5174 E2E_BACKEND_URL=http://localhost:8082 playwright test"
+    "test:e2e:local": "E2E_BASE_URL=http://localhost:5174 E2E_BACKEND_URL=http://localhost:8082 playwright test",
+    "perf:smoke": "docker compose --profile perf run --rm k6 run /scripts/smoke.js",
+    "perf:load": "docker compose --profile perf run --rm k6 run /scripts/load.js",
+    "perf:stress": "docker compose --profile perf run --rm k6 run /scripts/stress.js",
+    "perf:concurrent": "docker compose --profile perf run --rm k6 run /scripts/concurrent.js",
+    "perf:jmeter": "docker compose --profile perf run --rm jmeter -n -f -t /tests/inventario-load.jmx -l /results/jmeter.jtl -e -o /results/jmeter-html"
   },
   "repository": {
     "type": "git",
