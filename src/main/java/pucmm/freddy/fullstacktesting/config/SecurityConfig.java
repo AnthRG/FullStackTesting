@@ -28,11 +28,25 @@ import java.util.Map;
 @EnableMethodSecurity
 public class SecurityConfig {
 
+    private static final String CSP_API =
+            "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'";
+
+    private static final String CSP_SWAGGER_UI =
+            "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
+                    + "base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .cors(Customizer.withDefaults())
             .csrf(AbstractHttpConfigurer::disable)
+            // La API no sirve HTML, asi que su politica puede ser 'none' a todo.
+            // Swagger UI si necesita estilos inline para renderizar, y es la unica
+            // ruta que recibe la version relajada. setHeader (no add) evita mandar
+            // dos CSP, que el navegador combinaria por interseccion.
+            .headers(headers -> headers.addHeaderWriter((request, response) ->
+                response.setHeader("Content-Security-Policy",
+                    request.getRequestURI().startsWith("/swagger-ui") ? CSP_SWAGGER_UI : CSP_API)))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                 .requestMatchers("/actuator/prometheus").permitAll()
