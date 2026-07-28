@@ -1,3 +1,9 @@
+# Override unico para los entornos desplegados. ENTORNO (staging|prod) elige el
+# perfil de Spring, el realm de Keycloak y el ingress del tunnel. Las ramas dev,
+# staging y prod comparten este archivo: si difirieran, cada ascenso seria un
+# conflicto de merge.
+#   docker compose -f docker-compose.yml -f docker-compose.deploy.yml up -d
+
 services:
   db:
     environment:
@@ -17,7 +23,7 @@ services:
       KC_PROXY_HEADERS: xforwarded
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?falta KEYCLOAK_ADMIN_PASSWORD}
     volumes:
-      - ./keycloak/realm-staging.json:/opt/keycloak/data/import/realm.json:ro
+      - ./keycloak/realm-${ENTORNO:?falta ENTORNO}.json:/opt/keycloak/data/import/realm.json:ro
     depends_on:
       db:
         condition: service_healthy
@@ -26,7 +32,7 @@ services:
   backend:
     image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-anthrg}/fullstacktesting-backend:${IMAGE_TAG:?falta IMAGE_TAG}
     environment:
-      SPRING_PROFILES_ACTIVE: staging
+      SPRING_PROFILES_ACTIVE: ${ENTORNO}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?falta POSTGRES_PASSWORD}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?falta KEYCLOAK_ADMIN_PASSWORD}
     restart: always
@@ -54,9 +60,10 @@ services:
 
   cloudflared:
     image: cloudflare/cloudflared:${CLOUDFLARED_VERSION:-latest}
-    command: tunnel --no-autoupdate run
-    environment:
-      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?falta CLOUDFLARE_TUNNEL_TOKEN}
+    command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run
+    volumes:
+      - ./cloudflared/config.${ENTORNO}.yml:/etc/cloudflared/config.yml:ro
+      - ./cloudflared/credentials.json:/etc/cloudflared/credentials.json:ro
     depends_on:
       - frontend
       - backend

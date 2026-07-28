@@ -12,6 +12,12 @@ RUN ./gradlew bootJar --no-daemon
 # --- Etapa de runtime ---
 FROM eclipse-temurin:25-jre
 WORKDIR /app
+
+# curl es para el healthcheck del contenedor: en staging y prod no se publican
+# puertos, asi que "compose up --wait" es la unica forma de saber si arranco.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/build/libs/*.jar app.jar
 
 ADD https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.30.0/opentelemetry-javaagent.jar /app/otel-agent.jar

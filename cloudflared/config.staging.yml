@@ -1,0 +1,15 @@
+tunnel: d890a4c9-07a5-4b6a-8cf1-6539ae7bc94f
+credentials-file: /etc/cloudflared/credentials.json
+
+# El tunnel sale hacia Cloudflare, asi que el droplet no necesita ni un puerto
+# abierto: los hostnames entran por el edge y salen aqui contra la red del compose.
+ingress:
+  - hostname: stg.cloudsus.net
+    service: http://frontend:80
+  - hostname: api-stg.cloudsus.net
+    service: http://backend:8080
+  - hostname: auth-stg.cloudsus.net
+    service: http://keycloak:8080
+  - hostname: grafana-stg.cloudsus.net
+    service: http://grafana:3000
+  - service: http_status:404

@@ -1,8 +1,7 @@
 # Base neutral: define los servicios y su cableado interno. No publica puertos ni
 # construye imagenes: eso lo aporta el override de cada entorno. Nunca se usa sola.
-#   dev     : -f docker-compose.yml -f docker-compose.dev.yml
-#   staging : -f docker-compose.yml -f docker-compose.staging.yml
-#   prod    : -f docker-compose.yml -f docker-compose.prod.yml
+#   dev            : -f docker-compose.yml -f docker-compose.dev.yml
+#   staging y prod : -f docker-compose.yml -f docker-compose.deploy.yml
 
 services:
   db:
@@ -52,6 +51,12 @@ services:
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       OTEL_TRACES_EXPORTER: otlp
       OTEL_RESOURCE_ATTRIBUTES: service.namespace=${METRICS_NAMESPACE:-local}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
     depends_on:
       db:
         condition: service_healthy
@@ -67,6 +72,14 @@ services:
       KEYCLOAK_URL: ${PUBLIC_KEYCLOAK_URL:-http://localhost:8081}
       KEYCLOAK_REALM: ${PUBLIC_KEYCLOAK_REALM:-fullstacktesting}
       KEYCLOAK_CLIENT_ID: ${PUBLIC_KEYCLOAK_CLIENT_ID:-frontend}
+    # 127.0.0.1 y no localhost: nginx escucha solo en IPv4 y el wget de BusyBox
+    # resuelve localhost a ::1 primero, con lo que el healthcheck da connection refused.
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/config.js"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
     depends_on:
       - backend
     networks:
