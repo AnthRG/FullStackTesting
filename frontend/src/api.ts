@@ -1,4 +1,4 @@
-export const API_URL: string = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
+export { API_URL } from './config'
 
 export interface User {
   username: string

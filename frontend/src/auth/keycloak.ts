@@ -1,12 +1,13 @@
 import Keycloak from 'keycloak-js'
+import { KEYCLOAK_CLIENT_ID, KEYCLOAK_REALM, KEYCLOAK_URL } from '../config'
 
 export const ACCESS_TOKEN_KEY = 'access_token'
 export const REFRESH_TOKEN_KEY = 'refresh_token'
 
 const keycloak = new Keycloak({
-  url: import.meta.env.VITE_KEYCLOAK_URL ?? 'http://localhost:8081',
-  realm: import.meta.env.VITE_KEYCLOAK_REALM ?? 'fullstacktesting',
-  clientId: import.meta.env.VITE_KEYCLOAK_CLIENT_ID ?? 'frontend',
+  url: KEYCLOAK_URL,
+  realm: KEYCLOAK_REALM,
+  clientId: KEYCLOAK_CLIENT_ID,
 })
 
 let initPromise: Promise<boolean> | null = null
