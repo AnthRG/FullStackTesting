@@ -11,6 +11,9 @@ const KEYCLOAK_URL = process.env.E2E_KEYCLOAK_URL ?? 'http://localhost:8081'
 // invocarlo con la ruta relativa explicita.
 const GRADLEW = process.platform === 'win32' ? '.\\gradlew.bat' : './gradlew'
 
+// El compose base no publica puertos; el override de dev es el que los expone.
+const COMPOSE = 'docker compose -f docker-compose.yml -f docker-compose.dev.yml'
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
@@ -31,14 +34,14 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: 'docker compose up -d --wait db keycloak',
+      command: `${COMPOSE} up -d --wait db keycloak`,
       url: `${KEYCLOAK_URL}/realms/fullstacktesting/.well-known/openid-configuration`,
       reuseExistingServer: true,
       timeout: 120_000,
     },
     {
       
-      command: `docker compose up -d --wait db && ${GRADLEW} bootRun`,
+      command: `${COMPOSE} up -d --wait db && ${GRADLEW} bootRun`,
       env: {
         SPRING_DATASOURCE_URL: `jdbc:postgresql://localhost:${process.env.POSTGRES_PORT ?? '5440'}/fullstacktesting`,
       },
