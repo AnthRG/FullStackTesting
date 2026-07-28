@@ -48,7 +48,23 @@ public abstract class AbstractIntegrationTest {
         }
     }
 
-    private static void execKcadm(String... args) throws IOException, InterruptedException {
+    protected static String authServerUrl() {
+        return KEYCLOAK.getAuthServerUrl();
+    }
+
+    protected static String adminUsername() {
+        return KEYCLOAK.getAdminUsername();
+    }
+
+    protected static String adminPassword() {
+        return KEYCLOAK.getAdminPassword();
+    }
+
+    protected static void execKcadm(String... args) throws IOException, InterruptedException {
+        execKcadmOut(args);
+    }
+
+    protected static String execKcadmOut(String... args) throws IOException, InterruptedException {
         String[] cmd = new String[args.length + 1];
         cmd[0] = "/opt/keycloak/bin/kcadm.sh";
         System.arraycopy(args, 0, cmd, 1, args.length);
@@ -57,6 +73,7 @@ public abstract class AbstractIntegrationTest {
             throw new IllegalStateException("kcadm fallo (" + String.join(" ", cmd) + "): "
                     + result.getStdout() + result.getStderr());
         }
+        return result.getStdout();
     }
 
     @DynamicPropertySource
