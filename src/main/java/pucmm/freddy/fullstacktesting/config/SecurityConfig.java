@@ -9,6 +9,12 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.jwt.JwtClaimNames;
+import org.springframework.security.oauth2.jwt.JwtClaimValidator;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtValidators;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
@@ -22,11 +28,25 @@ import java.util.Map;
 @EnableMethodSecurity
 public class SecurityConfig {
 
+    private static final String CSP_API =
+            "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'";
+
+    private static final String CSP_SWAGGER_UI =
+            "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
+                    + "base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .cors(Customizer.withDefaults())
             .csrf(AbstractHttpConfigurer::disable)
+            // La API no sirve HTML, asi que su politica puede ser 'none' a todo.
+            // Swagger UI si necesita estilos inline para renderizar, y es la unica
+            // ruta que recibe la version relajada. setHeader (no add) evita mandar
+            // dos CSP, que el navegador combinaria por interseccion.
+            .headers(headers -> headers.addHeaderWriter((request, response) ->
+                response.setHeader("Content-Security-Policy",
+                    request.getRequestURI().startsWith("/swagger-ui") ? CSP_SWAGGER_UI : CSP_API)))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                 .requestMatchers("/actuator/prometheus").permitAll()
@@ -49,6 +69,21 @@ public class SecurityConfig {
             .oauth2ResourceServer(oauth2 -> oauth2
                 .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
         return http.build();
+    }
+
+    // issuer-uri por si solo valida iss y exp, no audiencia: sin esto cualquier
+    // token emitido por el realm, para cualquier cliente, entra a esta API.
+    @Bean
+    JwtDecoder jwtDecoder(
+            @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuerUri,
+            @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri}") String jwkSetUri,
+            @Value("${app.jwt.expected-audience}") String audienciaEsperada) {
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+                JwtValidators.createDefaultWithIssuer(issuerUri),
+                new JwtClaimValidator<List<String>>(JwtClaimNames.AUD,
+                        audiencias -> audiencias != null && audiencias.contains(audienciaEsperada))));
+        return decoder;
     }
 
     @Bean
