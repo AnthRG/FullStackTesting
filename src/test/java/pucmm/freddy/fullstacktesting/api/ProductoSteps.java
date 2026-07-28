@@ -2,10 +2,13 @@ package pucmm.freddy.fullstacktesting.api;
 
 import io.cucumber.java.es.Cuando;
 import io.cucumber.java.es.Dado;
+import io.cucumber.java.es.Entonces;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Steps del CRUD de productos. Cada step deja la respuesta en el {@link ScenarioContext};
@@ -108,6 +111,19 @@ public class ProductoSteps {
     @Cuando("listo los productos")
     public void listoLosProductos() {
         context.setResponse(api.autenticada().get("/api/products"));
+    }
+
+    /**
+     * Relee el producto por API, sin tocar la respuesta del escenario: sirve para afirmar
+     * que un movimiento rechazado dejo el stock igual que antes, no solo que devolvio 409.
+     */
+    @Entonces("el producto tiene cantidad {int}")
+    public void elProductoTieneCantidad(int esperada) {
+        int actual = api.comoAdmin().get("/api/products/" + context.getProductId())
+                .then().statusCode(200)
+                .extract().jsonPath().getInt("quantity");
+
+        assertThat(actual).isEqualTo(esperada);
     }
 
     /**
