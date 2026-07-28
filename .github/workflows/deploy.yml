@@ -48,7 +48,7 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
-          source: docker-compose.yml,docker-compose.${{ inputs.environment }}.yml,monitoring/**,keycloak/realm-${{ inputs.environment }}.json,db/init/**
+          source: docker-compose.yml,docker-compose.${{ inputs.environment }}.yml,monitoring/**,keycloak/realm-${{ inputs.environment }}.json,db/init/**,cloudflared/config.${{ inputs.environment }}.yml
           target: /srv/fullstacktesting
           overwrite: true
 
