@@ -23,6 +23,7 @@ import pucmm.freddy.fullstacktesting.exception.ProductNotFoundException;
 public class ProductService {
 
     private final ProductRepository repository;
+    private final NotificationService notificationService;
 
 
     public Page<ProductResponse> list(String search, ProductStatus status, Pageable pageable) {
@@ -49,18 +50,26 @@ public class ProductService {
     public ProductResponse create(ProductRequest req) {
         String sku = req.sku().trim().toUpperCase();
         if (repository.existsBySku(sku)) throw new DuplicateSkuException(sku);
+        Product saved;
         try {
-            return ProductResponse.from(repository.save(toEntity(req)));
+            saved = repository.save(toEntity(req));
         } catch (DataIntegrityViolationException ex) {
             throw new DuplicateSkuException(sku);
         }
+        // Sin estado previo: un producto que nace bajo minimo tambien alerta.
+        notificationService.evaluateStock(saved, null, null);
+        return ProductResponse.from(saved);
     }
 
     @Transactional
     public ProductResponse update(Long id, ProductRequest req) {
         String sku = req.sku().trim().toUpperCase();
         if (repository.existsBySkuAndIdNot(sku, id)) throw new DuplicateSkuException(sku);
-        Product product = getOrThrow(id);
+        // Bloquea la fila como hace el registro de movimientos: dos updates concurrentes
+        // leerian la misma cantidad previa y emitirian la alerta de umbral por duplicado.
+        Product product = repository.findByIdForUpdate(id).orElseThrow(() -> new ProductNotFoundException(id));
+        Integer previousQuantity = product.getQuantity();
+        Integer previousMinimum = product.getMinimumStock();
         product.setName(req.name());
         product.setSku(sku);
         product.setDescription(req.description());
@@ -69,11 +78,14 @@ public class ProductService {
         product.setQuantity(req.quantity());
         product.setMinimumStock(req.minimumStock());
         product.setStatus(req.status());
+        Product saved;
         try {
-            return ProductResponse.from(repository.save(product));
+            saved = repository.save(product);
         } catch (DataIntegrityViolationException ex) {
             throw new DuplicateSkuException(sku);
         }
+        notificationService.evaluateStock(saved, previousQuantity, previousMinimum);
+        return ProductResponse.from(saved);
     }
 
     @Transactional

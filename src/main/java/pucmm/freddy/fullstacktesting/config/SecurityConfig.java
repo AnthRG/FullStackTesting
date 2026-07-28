@@ -32,6 +32,9 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/prometheus").permitAll()
                 .requestMatchers("/error").permitAll()
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                // El navegador no puede mandar el header Authorization al abrir un WebSocket:
+                // la autenticacion real ocurre en el handshake (ver BearerSubprotocolHandshakeInterceptor).
+                .requestMatchers("/ws/**").permitAll()
                 // Red de seguridad por modulo: quien no tiene nada que hacer en un modulo
                 // no entra ni al primer metodo. La decision fina (ver vs gestionar) vive
                 // en los @PreAuthorize de cada operacion del controller correspondiente.
@@ -39,6 +42,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/admin/**").hasAuthority("user:manage")
                 .requestMatchers("/api/products/**").hasAnyAuthority("product:view", "product:manage")
                 .requestMatchers("/api/stock-movements/**").hasAnyAuthority("stock:view", "stock:manage")
+                .requestMatchers("/api/notifications/**").hasAuthority("product:view")
                 .requestMatchers("/api/reports/**").hasAuthority("report:view")
                 .requestMatchers("/api/audit/**").hasAuthority("audit:view")
                 .anyRequest().authenticated())

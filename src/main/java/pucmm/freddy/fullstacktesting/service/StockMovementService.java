@@ -28,6 +28,7 @@ public class StockMovementService {
 
     private final StockMovementRepository repository;
     private final ProductRepository productRepository;
+    private final NotificationService notificationService;
 
 
     @Transactional(readOnly = true)
@@ -74,7 +75,12 @@ public class StockMovementService {
         movement.setNewQuantity(updated);
         movement.setUserId(currentUser());
         movement.setObservations(req.observations());
-        return StockMovementResponse.from(repository.save(movement));
+        StockMovement saved = repository.save(movement);
+
+        // El movimiento no toca el minimo, asi que el minimo previo es el actual.
+        notificationService.evaluateStock(product, previous, product.getMinimumStock());
+
+        return StockMovementResponse.from(saved);
     }
 
     private String currentUser() {

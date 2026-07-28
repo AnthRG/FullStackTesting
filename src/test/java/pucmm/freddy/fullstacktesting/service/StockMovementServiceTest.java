@@ -41,6 +41,9 @@ class StockMovementServiceTest {
     @Mock
     private ProductRepository productRepository;
 
+    @Mock
+    private NotificationService notificationService;
+
     @InjectMocks
     private StockMovementService service;
 

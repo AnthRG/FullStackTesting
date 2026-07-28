@@ -34,6 +34,9 @@ class ProductServiceTest {
     @Mock
     private ProductRepository repository;
 
+    @Mock
+    private NotificationService notificationService;
+
     @InjectMocks
     private ProductService service;
 
@@ -86,7 +89,7 @@ class ProductServiceTest {
         ProductRequest req = sampleRequest();
         Product existing = sampleProduct(id);
         when(repository.existsBySkuAndIdNot(req.sku(), id)).thenReturn(false);
-        when(repository.findById(id)).thenReturn(java.util.Optional.of(existing));
+        when(repository.findByIdForUpdate(id)).thenReturn(java.util.Optional.of(existing));
         when(repository.save(any(Product.class))).thenReturn(existing);
 
         ProductResponse result = service.update(id, req);
@@ -104,7 +107,7 @@ class ProductServiceTest {
         assertThatThrownBy(() -> service.update(id, req))
                 .isInstanceOf(DuplicateSkuException.class);
 
-        verify(repository, never()).findById(any());
+        verify(repository, never()).findByIdForUpdate(any());
     }
 
     @Test
@@ -112,7 +115,7 @@ class ProductServiceTest {
         Long id = 99L;
         ProductRequest req = sampleRequest();
         when(repository.existsBySkuAndIdNot(req.sku(), id)).thenReturn(false);
-        when(repository.findById(id)).thenReturn(Optional.empty());
+        when(repository.findByIdForUpdate(id)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.update(id, req))
                 .isInstanceOf(ProductNotFoundException.class);
@@ -244,7 +247,7 @@ class ProductServiceTest {
                 new BigDecimal("499.99"), 5, 1, ProductStatus.INACTIVE);
         Product existing = sampleProduct(id);
         when(repository.existsBySkuAndIdNot(req.sku(), id)).thenReturn(false);
-        when(repository.findById(id)).thenReturn(Optional.of(existing));
+        when(repository.findByIdForUpdate(id)).thenReturn(Optional.of(existing));
         when(repository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
 
         ProductResponse result = service.update(id, req);
