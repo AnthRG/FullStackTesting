@@ -1,3 +1,9 @@
+# Base neutral: define los servicios y su cableado interno. No publica puertos ni
+# construye imagenes: eso lo aporta el override de cada entorno. Nunca se usa sola.
+#   dev     : -f docker-compose.yml -f docker-compose.dev.yml
+#   staging : -f docker-compose.yml -f docker-compose.staging.yml
+#   prod    : -f docker-compose.yml -f docker-compose.prod.yml
+
 services:
   db:
     image: postgres:17-alpine
@@ -5,8 +11,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-fullstacktesting}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -19,25 +23,18 @@ services:
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.3
-    command: ["start-dev", "--import-realm"]
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
-      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-http://localhost:8081}
       KC_HTTP_ENABLED: "true"
       KC_HEALTH_ENABLED: "true"
-    ports:
-      - "${KEYCLOAK_PORT:-8081}:8080"
-    volumes:
-      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm.json:ro
     networks:
       - spring
 
   backend:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ${BACKEND_IMAGE:-fullstacktesting-backend:local}
     environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:postgresql://db:5432/fullstacktesting}
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-postgres}
@@ -48,14 +45,13 @@ services:
       KEYCLOAK_ADMIN_SERVER_URL: ${KEYCLOAK_ADMIN_SERVER_URL:-http://keycloak:8080}
       KEYCLOAK_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      JWT_EXPECTED_AUDIENCE: ${JWT_EXPECTED_AUDIENCE:-fullstacktesting-api}
       METRICS_NAMESPACE: ${METRICS_NAMESPACE:-local}
       OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-fullstacktesting-backend}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://alloy:4317}
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       OTEL_TRACES_EXPORTER: otlp
       OTEL_RESOURCE_ATTRIBUTES: service.namespace=${METRICS_NAMESPACE:-local}
-    ports:
-      - "${BACKEND_PORT:-8080}:8080"
     depends_on:
       db:
         condition: service_healthy
@@ -65,12 +61,12 @@ services:
       - spring
 
   frontend:
-    build:
-      context: ./frontend
-      args:
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
-    ports:
-      - "${FRONTEND_PORT:-5173}:80"
+    image: ${FRONTEND_IMAGE:-fullstacktesting-frontend:local}
+    environment:
+      API_URL: ${PUBLIC_API_URL:-http://localhost:8080}
+      KEYCLOAK_URL: ${PUBLIC_KEYCLOAK_URL:-http://localhost:8081}
+      KEYCLOAK_REALM: ${PUBLIC_KEYCLOAK_REALM:-fullstacktesting}
+      KEYCLOAK_CLIENT_ID: ${PUBLIC_KEYCLOAK_CLIENT_ID:-frontend}
     depends_on:
       - backend
     networks:
@@ -78,16 +74,16 @@ services:
 
   prometheus:
     image: prom/prometheus:v3.1.0
+    profiles: [observability]
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-15d}
       - --web.enable-remote-write-receiver
       - --enable-feature=exemplar-storage
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - promdata:/prometheus
-    ports:
-      - "${PROMETHEUS_PORT:-9090}:9090"
     depends_on:
       - backend
     networks:
@@ -95,28 +91,27 @@ services:
 
   loki:
     image: grafana/loki:3.3.2
+    profiles: [observability]
     command: -config.file=/etc/loki/loki-config.yml
     volumes:
       - ./monitoring/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
       - lokidata:/loki
-    ports:
-      - "${LOKI_PORT:-3100}:3100"
     networks:
       - spring
 
   tempo:
     image: grafana/tempo:2.7.0
+    profiles: [observability]
     command: -config.file=/etc/tempo/tempo-config.yml
     volumes:
       - ./monitoring/tempo/tempo-config.yml:/etc/tempo/tempo-config.yml:ro
       - tempodata:/var/tempo
-    ports:
-      - "${TEMPO_PORT:-3200}:3200"
     networks:
       - spring
 
   alloy:
     image: grafana/alloy:v1.5.1
+    profiles: [observability]
     command:
       - run
       - --server.http.listen-addr=0.0.0.0:12345
@@ -126,8 +121,6 @@ services:
       - ./monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - alloydata:/var/lib/alloy/data
-    ports:
-      - "${ALLOY_PORT:-12345}:12345"
     depends_on:
       - loki
       - tempo
@@ -136,14 +129,14 @@ services:
 
   grafana:
     image: grafana/grafana:11.4.0
+    profiles: [observability]
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://localhost:3001}
     volumes:
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - grafanadata:/var/lib/grafana
-    ports:
-      - "${GRAFANA_PORT:-3001}:3000"
     depends_on:
       - prometheus
     networks:
