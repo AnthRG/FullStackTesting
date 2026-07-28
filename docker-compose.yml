@@ -53,7 +53,7 @@ services:
       OTEL_TRACES_EXPORTER: otlp
       OTEL_RESOURCE_ATTRIBUTES: service.namespace=${METRICS_NAMESPACE:-local}
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health"]
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/actuator/health"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -73,8 +73,10 @@ services:
       KEYCLOAK_URL: ${PUBLIC_KEYCLOAK_URL:-http://localhost:8081}
       KEYCLOAK_REALM: ${PUBLIC_KEYCLOAK_REALM:-fullstacktesting}
       KEYCLOAK_CLIENT_ID: ${PUBLIC_KEYCLOAK_CLIENT_ID:-frontend}
+    # 127.0.0.1 y no localhost: nginx escucha solo en IPv4 y el wget de BusyBox
+    # resuelve localhost a ::1 primero, con lo que el healthcheck da connection refused.
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost/config.js"]
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/config.js"]
       interval: 10s
       timeout: 5s
       retries: 6
