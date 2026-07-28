@@ -78,6 +78,10 @@ ehthumbs.db
 Thumbs.db
 desktop.ini
 
+# Performance
+/performance/results/*
+!/performance/results/.gitkeep
+
 # Playwright
 node_modules/
 /test-results/
