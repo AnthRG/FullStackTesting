@@ -1,0 +1,52 @@
+# Desarrollo local: construye las imagenes en sitio, publica todos los puertos en el
+# host y usa el realm con los usuarios de prueba. Keycloak va en start-dev (sin
+# persistencia, arranca en segundos).
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+# Con COMPOSE_FILE en .env, "docker compose up -d" a secas hace lo mismo.
+
+services:
+  db:
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+
+  keycloak:
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-http://localhost:8081}
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm.json:ro
+    ports:
+      - "${KEYCLOAK_PORT:-8081}:8080"
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+
+  prometheus:
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+
+  loki:
+    ports:
+      - "${LOKI_PORT:-3100}:3100"
+
+  tempo:
+    ports:
+      - "${TEMPO_PORT:-3200}:3200"
+
+  alloy:
+    ports:
+      - "${ALLOY_PORT:-12345}:12345"
+
+  grafana:
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
