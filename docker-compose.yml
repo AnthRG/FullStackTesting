@@ -155,6 +155,45 @@ services:
     networks:
       - spring
 
+  # Perfil "perf": no arranca con un `docker compose up` normal, solo cuando se pide
+  # explicitamente con --profile perf. Ambos corren dentro de la red `spring`, asi que
+  # llegan al backend por su nombre de servicio y el comando es identico en Windows,
+  # macOS y Linux (nada de host.docker.internal ni rutas del host).
+  k6:
+    image: grafana/k6:0.55.0
+    profiles: ["perf"]
+    user: root
+    volumes:
+      - ./performance/k6:/scripts:ro
+      - ./performance/results:/results
+    environment:
+      # Prefijo PERF_ y no K6_: k6 usa el espacio de nombres K6_ para sus propias
+      # opciones (K6_VUS, K6_DURATION), que pisarian el `options` de cada script.
+      PERF_BASE_URL: ${PERF_BASE_URL:-http://backend:8080}
+      PERF_KEYCLOAK_URL: ${PERF_KEYCLOAK_URL:-http://keycloak:8080}
+      PERF_REALM: ${PERF_REALM:-fullstacktesting}
+      PERF_CLIENT_ID: ${PERF_CLIENT_ID:-frontend}
+      PERF_USERNAME: ${PERF_USERNAME:-admin}
+      PERF_PASSWORD: ${PERF_PASSWORD:-admin}
+      PERF_VUS: ${PERF_VUS:-20}
+      PERF_DURATION: ${PERF_DURATION:-2m}
+      PERF_STRESS_LEVELS: ${PERF_STRESS_LEVELS:-20,50,100,150}
+      PERF_STRESS_RAMP: ${PERF_STRESS_RAMP:-30s}
+      PERF_STRESS_HOLD: ${PERF_STRESS_HOLD:-1m}
+      PERF_RESULTS_DIR: /results
+    networks:
+      - spring
+
+  jmeter:
+    image: justb4/jmeter:5.5
+    profiles: ["perf"]
+    user: root
+    volumes:
+      - ./performance/jmeter:/tests:ro
+      - ./performance/results:/results
+    networks:
+      - spring
+
 volumes:
   pgdata:
   promdata:

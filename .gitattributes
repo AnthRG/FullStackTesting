@@ -1,0 +1,16 @@
+# Normaliza los finales de linea: en el repo siempre LF, en el working copy lo que
+# corresponda al sistema. Sin esto, un archivo escrito en Windows llega con CRLF a los
+# contenedores Linux y falla con errores del tipo "\r: not found".
+* text=auto eol=lf
+
+*.sh    text eol=lf
+*.jmx   text eol=lf
+gradlew text eol=lf
+
+gradlew.bat text eol=crlf
+*.cmd       text eol=crlf
+
+*.jar   binary
+*.png   binary
+*.jpg   binary
+*.ico   binary
