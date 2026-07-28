@@ -18,6 +18,12 @@ repositories {
 	mavenCentral()
 }
 
+// Los .feature y los steps estan en espanol; fijar la codificacion evita que el texto
+// dependa del locale de la maquina que compila.
+tasks.withType(JavaCompile).configureEach {
+	options.encoding = 'UTF-8'
+}
+
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
@@ -35,6 +41,12 @@ dependencies {
 	runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
 	runtimeOnly 'org.postgresql:postgresql'
 	annotationProcessor 'org.projectlombok:lombok'
+	testImplementation platform('io.cucumber:cucumber-bom:7.22.1')
+	testImplementation 'io.cucumber:cucumber-java'
+	testImplementation 'io.cucumber:cucumber-spring'
+	testImplementation 'io.cucumber:cucumber-junit-platform-engine'
+	testImplementation 'org.junit.platform:junit-platform-suite'
+	testImplementation 'io.rest-assured:rest-assured:5.5.2'
 	testImplementation 'org.springframework.boot:spring-boot-starter-actuator-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-flyway-test'
@@ -61,12 +73,22 @@ sourceSets {
 	}
 }
 
+configurations.matching { it.name.toLowerCase().startsWith('test') }.configureEach {
+	resolutionStrategy.eachDependency { details ->
+		if (details.requested.group == 'org.apache.groovy') {
+			details.useVersion '4.0.22'
+		}
+	}
+}
+
 jacoco {
 	toolVersion = '0.8.14'
 }
 
 tasks.named('test') {
 	useJUnitPlatform()
+	systemProperty 'cucumber.junit-platform.naming-strategy', 'long'
+	systemProperty 'cucumber.plugin', 'pretty, html:build/reports/cucumber.html'
 	finalizedBy tasks.named('jacocoTestReport')
 }
 

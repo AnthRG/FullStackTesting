@@ -80,18 +80,24 @@ class ReportServiceIT extends AbstractIntegrationTest {
         saveMovement(c, MovementType.IN, 100); // los IN no cuentan como salida
         flush();
 
-        List<TopProductResponse> top2 = service.topProducts(2);
+    
+        List<Long> productosDelTest = List.of(a.getId(), b.getId(), c.getId());
+        List<TopProductResponse> ranking = service.topProducts(50).stream()
+                .filter(t -> productosDelTest.contains(t.productId()))
+                .toList();
 
-        assertThat(top2).hasSize(2);
-        assertThat(top2.get(0).productId()).isEqualTo(b.getId());
-        assertThat(top2.get(0).unitsOut()).isEqualTo(50);
-        assertThat(top2.get(0).movementCount()).isEqualTo(1);
-        assertThat(top2.get(1).productId()).isEqualTo(a.getId());
-        assertThat(top2.get(1).unitsOut()).isEqualTo(30);
-        assertThat(top2.get(1).movementCount()).isEqualTo(2);
+        assertThat(ranking).hasSize(3);
+        assertThat(ranking.get(0).productId()).isEqualTo(b.getId());
+        assertThat(ranking.get(0).unitsOut()).isEqualTo(50);
+        assertThat(ranking.get(0).movementCount()).isEqualTo(1);
+        assertThat(ranking.get(1).productId()).isEqualTo(a.getId());
+        assertThat(ranking.get(1).unitsOut()).isEqualTo(30);
+        assertThat(ranking.get(1).movementCount()).isEqualTo(2);
+        assertThat(ranking.get(2).productId()).isEqualTo(c.getId());
+        assertThat(ranking.get(2).unitsOut()).isEqualTo(5);
 
-        assertThat(service.topProducts(0)).hasSize(1);   // clamp a 1
-        assertThat(service.topProducts(99)).hasSize(3);  // clamp a 50, solo hay 3
+        assertThat(service.topProducts(0)).hasSize(1);           // clamp a 1
+        assertThat(service.topProducts(99)).hasSizeLessThanOrEqualTo(50); // clamp a 50
     }
 
     @Test
@@ -122,6 +128,10 @@ class ReportServiceIT extends AbstractIntegrationTest {
 
     @Test
     void movementsByType_agrupaPorTipoYRespetaElRangoDeFechas() {
+        // El reporte agrupa toda la tabla, compartida con los demas tests: se mide el delta
+        // que aporta este test en vez de los totales absolutos.
+        Map<MovementType, MovementsByTypeResponse> antes = porTipo(service.movementsByType(null, null));
+
         Product p = saveProduct("mbt", ProductStatus.ACTIVE, "1.00", 100, 1);
         saveMovement(p, MovementType.IN, 5);
         saveMovement(p, MovementType.IN, 7);
@@ -129,15 +139,14 @@ class ReportServiceIT extends AbstractIntegrationTest {
         saveMovement(p, MovementType.ADJUSTMENT, 9);
         flush();
 
-        Map<MovementType, MovementsByTypeResponse> byType = service.movementsByType(null, null).stream()
-                .collect(Collectors.toMap(MovementsByTypeResponse::movementType, r -> r));
+        Map<MovementType, MovementsByTypeResponse> byType = porTipo(service.movementsByType(null, null));
 
-        assertThat(byType.get(MovementType.IN).movementCount()).isEqualTo(2);
-        assertThat(byType.get(MovementType.IN).totalUnits()).isEqualTo(12);
-        assertThat(byType.get(MovementType.OUT).movementCount()).isEqualTo(1);
-        assertThat(byType.get(MovementType.OUT).totalUnits()).isEqualTo(3);
-        assertThat(byType.get(MovementType.ADJUSTMENT).movementCount()).isEqualTo(1);
-        assertThat(byType.get(MovementType.ADJUSTMENT).totalUnits()).isEqualTo(9);
+        assertThat(conteo(byType, MovementType.IN) - conteo(antes, MovementType.IN)).isEqualTo(2);
+        assertThat(unidades(byType, MovementType.IN) - unidades(antes, MovementType.IN)).isEqualTo(12);
+        assertThat(conteo(byType, MovementType.OUT) - conteo(antes, MovementType.OUT)).isEqualTo(1);
+        assertThat(unidades(byType, MovementType.OUT) - unidades(antes, MovementType.OUT)).isEqualTo(3);
+        assertThat(conteo(byType, MovementType.ADJUSTMENT) - conteo(antes, MovementType.ADJUSTMENT)).isEqualTo(1);
+        assertThat(unidades(byType, MovementType.ADJUSTMENT) - unidades(antes, MovementType.ADJUSTMENT)).isEqualTo(9);
 
         LocalDate today = LocalDate.now();
         assertThat(service.movementsByType(today, today)).isNotEmpty();               // hoy incluido
@@ -151,6 +160,19 @@ class ReportServiceIT extends AbstractIntegrationTest {
 
         assertThatThrownBy(() -> service.movementsByType(today, today.minusDays(1)))
                 .isInstanceOf(InvalidDateRangeException.class);
+    }
+
+    private Map<MovementType, MovementsByTypeResponse> porTipo(List<MovementsByTypeResponse> filas) {
+        return filas.stream().collect(Collectors.toMap(MovementsByTypeResponse::movementType, r -> r));
+    }
+
+    /** Un tipo sin movimientos no aparece en el reporte, asi que cuenta como cero. */
+    private long conteo(Map<MovementType, MovementsByTypeResponse> byType, MovementType tipo) {
+        return byType.containsKey(tipo) ? byType.get(tipo).movementCount() : 0L;
+    }
+
+    private long unidades(Map<MovementType, MovementsByTypeResponse> byType, MovementType tipo) {
+        return byType.containsKey(tipo) ? byType.get(tipo).totalUnits() : 0L;
     }
 
     private LowStockProductResponse pick(List<LowStockProductResponse> list, Long productId) {
