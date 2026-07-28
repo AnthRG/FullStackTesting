@@ -1,0 +1,152 @@
+{
+  "realm": "fullstacktesting",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "failureFactor": 5,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
+  "minimumQuickLoginWaitSeconds": 60,
+  "quickLoginCheckMilliSeconds": 1000,
+  "maxDeltaTimeSeconds": 43200,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 28800,
+  "offlineSessionIdleTimeout": 2592000,
+  "revokeRefreshToken": false,
+  "refreshTokenMaxReuse": 0,
+  "roles": {
+    "realm": [
+      {
+        "name": "VIEW_ROLES",
+        "description": "[legacy] Puede ver los roles de los usuarios"
+      },
+      {
+        "name": "EDIT_ROLES",
+        "description": "[legacy] Puede editar/remover los roles de los usuarios"
+      },
+      {
+        "name": "product:view",
+        "description": "Permiso: ver productos del inventario"
+      },
+      {
+        "name": "product:manage",
+        "description": "Permiso: crear, editar y eliminar productos"
+      },
+      {
+        "name": "stock:view",
+        "description": "Permiso: ver existencia e historial de movimientos"
+      },
+      {
+        "name": "stock:manage",
+        "description": "Permiso: registrar entradas, salidas y ajustes"
+      },
+      {
+        "name": "report:view",
+        "description": "Permiso: ver reportes y dashboard"
+      },
+      {
+        "name": "user:manage",
+        "description": "Permiso: gestionar usuarios, roles y permisos"
+      },
+      {
+        "name": "audit:view",
+        "description": "Permiso: consultar la auditoria del sistema"
+      },
+      {
+        "name": "INVENTORY_VIEWER",
+        "description": "Rol: solo lectura de inventario y reportes",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "product:view",
+            "stock:view",
+            "report:view"
+          ]
+        }
+      },
+      {
+        "name": "INVENTORY_OPERATOR",
+        "description": "Rol: opera el inventario (productos y movimientos de stock)",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "product:view",
+            "product:manage",
+            "stock:view",
+            "stock:manage",
+            "report:view"
+          ]
+        }
+      },
+      {
+        "name": "AUDITOR",
+        "description": "Rol: consulta auditoria y reportes, sin modificar nada",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "audit:view",
+            "report:view",
+            "product:view",
+            "stock:view"
+          ]
+        }
+      },
+      {
+        "name": "INVENTORY_ADMIN",
+        "description": "Rol: todos los permisos del sistema",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "product:view",
+            "product:manage",
+            "stock:view",
+            "stock:manage",
+            "report:view",
+            "audit:view",
+            "user:manage"
+          ]
+        }
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "frontend",
+      "name": "Frontend SPA (Vite/React)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "fullScopeAllowed": true,
+      "redirectUris": [
+        "https://app.cloudsus.net/*"
+      ],
+      "webOrigins": [
+        "https://app.cloudsus.net"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5173/*##http://localhost:3000/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience-fullstacktesting-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "fullstacktesting-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ]
+}
