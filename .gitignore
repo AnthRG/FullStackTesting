@@ -31,6 +31,7 @@ application-secret*.yml
 !.env.*.example
 *.pem
 *.key
+cloudflared/credentials.json
 
 ### IDEs ###
 # IntelliJ IDEA

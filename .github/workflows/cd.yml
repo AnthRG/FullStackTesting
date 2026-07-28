@@ -1,0 +1,102 @@
+name: CD
+
+# Construye las imagenes una sola vez por commit y despliega la rama a su droplet.
+# Como staging -> prod se promueve con fast-forward, el sha no cambia: prod reusa
+# exactamente la imagen que staging valido, en vez de recompilar.
+
+on:
+  push:
+    branches: [staging, prod]
+
+concurrency:
+  group: cd-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  meta:
+    name: meta
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.datos.outputs.tag }}
+      sha: ${{ steps.datos.outputs.sha }}
+      owner: ${{ steps.datos.outputs.owner }}
+    steps:
+      - name: Checkout del repo
+        uses: actions/checkout@v4
+
+      # La imagen se etiqueta por hash del arbol, no del commit. Un merge de PR
+      # crea un commit nuevo pero deja el mismo arbol, asi que al promover
+      # staging -> prod el tag no cambia y se reusa la imagen ya validada. Si el
+      # contenido si difiere (un hotfix en prod), el arbol cambia y se reconstruye.
+      - name: Calcular tags y owner
+        id: datos
+        run: |
+          echo "tag=tree-$(git rev-parse 'HEAD^{tree}' | cut -c1-12)" >> "$GITHUB_OUTPUT"
+          echo "sha=sha-$(echo ${{ github.sha }} | cut -c1-7)" >> "$GITHUB_OUTPUT"
+          echo "owner=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: build-${{ matrix.componente }}
+    needs: meta
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - componente: backend
+            contexto: .
+            dockerfile: Dockerfile
+          - componente: frontend
+            contexto: ./frontend
+            dockerfile: ./frontend/Dockerfile
+    steps:
+      - name: Checkout del repo
+        uses: actions/checkout@v4
+
+      - name: Login en GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Si el sha ya tiene imagen (caso tipico al promover staging -> prod) no se
+      # reconstruye: se despliega el mismo artefacto, que es todo el punto.
+      - name: Ya existe la imagen de este commit?
+        id: existe
+        run: |
+          imagen=ghcr.io/${{ needs.meta.outputs.owner }}/fullstacktesting-${{ matrix.componente }}:${{ needs.meta.outputs.tag }}
+          if docker manifest inspect "$imagen" >/dev/null 2>&1; then
+            echo "saltar=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::$imagen ya existe, se reutiliza"
+          else
+            echo "saltar=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Configurar Buildx
+        if: steps.existe.outputs.saltar == 'false'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Construir y publicar
+        if: steps.existe.outputs.saltar == 'false'
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.contexto }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: |
+            ghcr.io/${{ needs.meta.outputs.owner }}/fullstacktesting-${{ matrix.componente }}:${{ needs.meta.outputs.tag }}
+            ghcr.io/${{ needs.meta.outputs.owner }}/fullstacktesting-${{ matrix.componente }}:${{ needs.meta.outputs.sha }}
+            ghcr.io/${{ needs.meta.outputs.owner }}/fullstacktesting-${{ matrix.componente }}:${{ github.ref_name }}
+          cache-from: type=gha,scope=${{ matrix.componente }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.componente }}
+
+  deploy:
+    needs: [meta, build]
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: ${{ github.ref_name }}
+      image_tag: ${{ needs.meta.outputs.tag }}
+    secrets: inherit

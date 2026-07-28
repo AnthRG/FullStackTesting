@@ -1,0 +1,87 @@
+name: Deploy
+
+# Reutilizable desde cd.yml, y ejecutable a mano para hacer rollback: se lanza con
+# el tag de la version anterior y el droplet vuelve a esa imagen en segundos.
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      image_tag:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Entorno destino
+        required: true
+        type: choice
+        options: [staging, prod]
+      image_tag:
+        description: Tag de imagen (sha-xxxxxxx). Para rollback, el de la version anterior.
+        required: true
+        type: string
+
+concurrency:
+  group: deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: deploy-${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout del repo
+        uses: actions/checkout@v4
+
+      # El droplet no clona el repo: solo recibe la configuracion del commit que se
+      # esta desplegando. Las imagenes ya vienen construidas desde GHCR.
+      - name: Copiar la configuracion al droplet
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: docker-compose.yml,docker-compose.deploy.yml,monitoring/**,keycloak/realm-${{ inputs.environment }}.json,db/init/**,cloudflared/config.${{ inputs.environment }}.yml
+          target: /srv/fullstacktesting
+          overwrite: true
+
+      - name: Levantar el stack
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          envs: IMAGE_TAG,GHCR_USER,GHCR_TOKEN,ENTORNO
+          # Sin script_stop el script sigue tras un comando fallido y el job
+          # termina verde aunque el deploy se haya caido.
+          script_stop: true
+          script: |
+            set -eu
+            cd /srv/fullstacktesting
+
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+
+            # El .env vive en el droplet con los secretos; solo se le reescribe el tag.
+            if grep -q '^IMAGE_TAG=' .env; then
+              sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=$IMAGE_TAG|" .env
+            else
+              echo "IMAGE_TAG=$IMAGE_TAG" >> .env
+            fi
+
+            COMPOSE="docker compose -f docker-compose.yml -f docker-compose.deploy.yml"
+            $COMPOSE pull
+            $COMPOSE up -d --wait --remove-orphans
+            $COMPOSE ps
+            docker image prune -f
+        env:
+          IMAGE_TAG: ${{ inputs.image_tag }}
+          ENTORNO: ${{ inputs.environment }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
