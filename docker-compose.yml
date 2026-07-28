@@ -52,6 +52,12 @@ services:
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       OTEL_TRACES_EXPORTER: otlp
       OTEL_RESOURCE_ATTRIBUTES: service.namespace=${METRICS_NAMESPACE:-local}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
     depends_on:
       db:
         condition: service_healthy
@@ -67,6 +73,12 @@ services:
       KEYCLOAK_URL: ${PUBLIC_KEYCLOAK_URL:-http://localhost:8081}
       KEYCLOAK_REALM: ${PUBLIC_KEYCLOAK_REALM:-fullstacktesting}
       KEYCLOAK_CLIENT_ID: ${PUBLIC_KEYCLOAK_CLIENT_ID:-frontend}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/config.js"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
     depends_on:
       - backend
     networks:
