@@ -3,6 +3,7 @@ import { KEYCLOAK_CLIENT_ID, KEYCLOAK_REALM, KEYCLOAK_URL } from '../config'
 
 export const ACCESS_TOKEN_KEY = 'access_token'
 export const REFRESH_TOKEN_KEY = 'refresh_token'
+export const ID_TOKEN_KEY = 'id_token'
 
 const keycloak = new Keycloak({
   url: KEYCLOAK_URL,
@@ -19,9 +20,31 @@ export function initKeycloak(): Promise<boolean> {
       checkLoginIframe: false,
       token: localStorage.getItem(ACCESS_TOKEN_KEY) ?? undefined,
       refreshToken: localStorage.getItem(REFRESH_TOKEN_KEY) ?? undefined,
+      // Sin el id_token restaurado, tras recargar la pagina el logout sale sin
+      // `id_token_hint` y Keycloak intercala una pantalla de confirmacion en vez
+      // de cerrar la sesion y volver a la app.
+      idToken: localStorage.getItem(ID_TOKEN_KEY) ?? undefined,
     })
   }
   return initPromise
+}
+
+/**
+ * Cierra la sesion en Keycloak y vuelve a `/login`.
+ *
+ * `keycloak.logout` solo existe despues de que `init()` resuelve (el adaptador se crea
+ * ahi), asi que se espera al init antes de llamarlo. Si el init fallo o el redirect no
+ * llega a salir, se navega a /login igual: los tokens locales ya se borraron y quedarse
+ * en la pantalla anterior es justo lo que se siente como "el logout no sirve".
+ */
+export async function logoutKeycloak(): Promise<void> {
+  const redirectUri = `${window.location.origin}/login`
+  try {
+    await initPromise
+    await keycloak.logout({ redirectUri })
+  } catch {
+    window.location.replace(redirectUri)
+  }
 }
 
 /**

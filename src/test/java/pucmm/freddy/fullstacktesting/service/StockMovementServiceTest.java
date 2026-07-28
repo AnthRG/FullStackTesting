@@ -132,6 +132,75 @@ class StockMovementServiceTest {
         verify(repository, never()).save(any());
     }
 
+    // ── register: la resta que ve el usuario en la pantalla de productos ─────
+
+    @Test
+    void register_conSeisUnidadesYSalidaDeCuatro_dejaDos() {
+        Product product = sampleProduct(1L, 6);
+        when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(product));
+        when(repository.save(any(StockMovement.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        StockMovementResponse result = service.register(request(1L, MovementType.OUT, 4));
+
+        assertThat(product.getQuantity()).isEqualTo(2);
+        assertThat(result.previousQuantity()).isEqualTo(6);
+        assertThat(result.quantity()).isEqualTo(4);
+        assertThat(result.newQuantity()).isEqualTo(2);
+    }
+
+    @Test
+    void register_conSalidaExactamenteIgualAlStock_loDejaEnCero() {
+        Product product = sampleProduct(1L, 6);
+        when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(product));
+        when(repository.save(any(StockMovement.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        StockMovementResponse result = service.register(request(1L, MovementType.OUT, 6));
+
+        assertThat(product.getQuantity()).isZero();
+        assertThat(result.newQuantity()).isZero();
+    }
+
+    @Test
+    void register_conSalidaDeUnaUnidadMasQueElStock_noSePasaANegativo() {
+        Product product = sampleProduct(1L, 6);
+        when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(product));
+
+        assertThatThrownBy(() -> service.register(request(1L, MovementType.OUT, 7)))
+                .isInstanceOf(InsufficientStockException.class);
+
+        // El stock del producto no se toca cuando el movimiento se rechaza: si quedara
+        // en -1 en memoria, la transaccion podria arrastrarlo a la base.
+        assertThat(product.getQuantity()).isEqualTo(6);
+        verify(repository, never()).save(any());
+        verify(notificationService, never()).evaluateStock(any(), anyInt(), anyInt());
+    }
+
+    @Test
+    void register_conSalidaSobreStockCero_noSePasaANegativo() {
+        Product product = sampleProduct(1L, 0);
+        when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(product));
+
+        assertThatThrownBy(() -> service.register(request(1L, MovementType.OUT, 1)))
+                .isInstanceOf(InsufficientStockException.class);
+
+        assertThat(product.getQuantity()).isZero();
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void register_conVariasSalidasSeguidas_vaDescontandoDesdeElStockVigente() {
+        Product product = sampleProduct(1L, 6);
+        when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(product));
+        when(repository.save(any(StockMovement.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.register(request(1L, MovementType.OUT, 2));
+        StockMovementResponse segunda = service.register(request(1L, MovementType.OUT, 3));
+
+        assertThat(segunda.previousQuantity()).isEqualTo(4);
+        assertThat(segunda.newQuantity()).isEqualTo(1);
+        assertThat(product.getQuantity()).isEqualTo(1);
+    }
+
     @Test
     void register_conProductoInexistente_lanzaProductNotFoundException() {
         when(productRepository.findByIdForUpdate(99L)).thenReturn(Optional.empty());

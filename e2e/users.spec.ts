@@ -7,7 +7,7 @@ test.describe('Usuarios y roles', () => {
     await gotoAuthenticated(page, '/users')
     await expect(page.getByRole('heading', { name: 'Usuarios y roles' })).toBeVisible()
     for (const username of ['admin', 'user1', 'user2']) {
-      await expect(page.getByRole('row').filter({ hasText: username }).first()).toBeVisible()
+      await expect(page.getByTestId('user-card').filter({ hasText: username }).first()).toBeVisible()
     }
   })
 
@@ -21,20 +21,20 @@ test.describe('Usuarios y roles', () => {
 
     await login(page, 'admin')
     await gotoAuthenticated(page, '/users')
-    const row = page.getByRole('row').filter({ hasText: 'user2' })
-    // Sin roles asignados: no hay chips (el texto "Sin roles" solo aparece en modo lectura)
-    const removeChip = row.getByRole('button', { name: 'Quitar rol product:view' })
-    await expect(row.getByRole('combobox', { name: 'Agregar rol a user2' })).toBeVisible()
+    const card = page.getByTestId('user-card').filter({ hasText: 'user2' })
+    // Sin el rol asignado no hay chip que quitar; el control de alta si esta siempre.
+    const removeChip = card.getByRole('button', { name: 'Quitar rol product:view' })
+    await expect(card.getByRole('combobox', { name: 'Agregar rol a user2' })).toBeVisible()
     await expect(removeChip).toHaveCount(0)
 
     // Asignar product:view
-    await row.getByRole('combobox', { name: 'Agregar rol a user2' }).selectOption('product:view')
-    await row.getByRole('button', { name: 'Agregar', exact: true }).click()
+    await card.getByRole('combobox', { name: 'Agregar rol a user2' }).selectOption('product:view')
+    await card.getByRole('button', { name: 'Agregar', exact: true }).click()
     await expect(removeChip).toBeVisible()
 
     // Quitarlo con su confirmación inline → estado restaurado
     await removeChip.click()
-    await row.getByRole('button', { name: 'Sí' }).click()
+    await card.getByRole('button', { name: 'Sí' }).click()
     await expect(removeChip).toHaveCount(0)
   })
 

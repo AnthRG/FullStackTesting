@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { assignRole, listRoles, listUsers, removeRole } from '../adminApi'
@@ -27,16 +27,36 @@ function IconX({ className = 'w-3 h-3' }: { className?: string }) {
   )
 }
 
-// Un color por modulo, y los roles de negocio (los que no llevan ':') destacados aparte,
-// para que se vea de un vistazo la diferencia entre un rol y los permisos que agrupa.
+// Keycloak devuelve en la misma lista los roles de negocio (INVENTORY_ADMIN) y los
+// permisos que esos roles agrupan (product:view). Separarlos es lo que vuelve legible
+// la pantalla: los primeros son la decisión, los segundos su consecuencia.
+function isBusinessRole(role: string): boolean {
+  return !role.includes(':')
+}
+
+function moduleOf(permission: string): string {
+  return permission.split(':')[0]
+}
+
+const MODULE_CHIP: Record<string, string> = {
+  product: 'bg-violet-50 text-violet-700',
+  stock: 'bg-emerald-50 text-emerald-700',
+  report: 'bg-sky-50 text-sky-700',
+  audit: 'bg-orange-50 text-orange-700',
+  user: 'bg-rose-50 text-rose-700',
+}
+
 function roleChipClasses(role: string): string {
-  if (!role.includes(':')) return 'bg-blue-100 text-blue-800 font-semibold'
-  if (role.startsWith('product:')) return 'bg-violet-50 text-violet-700'
-  if (role.startsWith('stock:')) return 'bg-emerald-50 text-emerald-700'
-  if (role.startsWith('report:')) return 'bg-sky-50 text-sky-700'
-  if (role.startsWith('audit:')) return 'bg-orange-50 text-orange-700'
-  if (role.startsWith('user:')) return 'bg-rose-50 text-rose-700'
-  return 'bg-amber-50 text-amber-700'
+  if (isBusinessRole(role)) return 'bg-blue-100 text-blue-800 font-semibold'
+  return MODULE_CHIP[moduleOf(role)] ?? 'bg-amber-50 text-amber-700'
+}
+
+// Roles alfabéticos; permisos agrupados por módulo y alfabéticos dentro del módulo,
+// para que la misma persona se vea siempre igual entre recargas.
+function splitRoles(roles: string[]): { business: string[]; permissions: string[] } {
+  const business = roles.filter(isBusinessRole).sort((a, b) => a.localeCompare(b))
+  const permissions = roles.filter(r => !isBusinessRole(r)).sort((a, b) => a.localeCompare(b))
+  return { business, permissions }
 }
 
 export default function UsersPage() {
@@ -53,6 +73,7 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [actionError, setActionError] = useState('')
+  const [filter, setFilter] = useState('')
 
   const [confirmRemove, setConfirmRemove] = useState<{ userId: string; role: string } | null>(null)
   const [pending, setPending] = useState<string | null>(null)
@@ -80,6 +101,17 @@ export default function UsersPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount es el patrón estándar de carga de datos
     load()
   }, [load])
+
+  const visibleUsers = useMemo(() => {
+    const needle = filter.trim().toLowerCase()
+    const ordenados = [...users].sort((a, b) => a.username.localeCompare(b.username))
+    if (!needle) return ordenados
+    return ordenados.filter(u =>
+      u.username.toLowerCase().includes(needle) ||
+      (u.email ?? '').toLowerCase().includes(needle) ||
+      u.realmRoles.some(r => r.toLowerCase().includes(needle)),
+    )
+  }, [users, filter])
 
   async function handleAssign(userId: string) {
     const role = addSelections[userId]
@@ -115,6 +147,51 @@ export default function UsersPage() {
     }
   }
 
+  function renderChip(u: UserWithRoles, role: string) {
+    const key = `${u.id}:${role}`
+    const isConfirming = confirmRemove?.userId === u.id && confirmRemove.role === role
+    const isRemoving = pending === key
+
+    if (isConfirming) {
+      return (
+        <span key={role} className="inline-flex items-center gap-1.5 rounded-full bg-red-50 border border-red-100 pl-2.5 pr-1.5 py-1 text-xs">
+          <span className="text-red-600">¿Quitar {role}?</span>
+          <button
+            onClick={() => handleRemove(u.id, role)}
+            disabled={isRemoving}
+            className="font-medium text-red-600 hover:text-red-800 disabled:opacity-50 cursor-pointer"
+          >
+            {isRemoving ? '…' : 'Sí'}
+          </button>
+          <button
+            onClick={() => setConfirmRemove(null)}
+            className="text-slate-400 hover:text-slate-600 cursor-pointer"
+          >
+            No
+          </button>
+        </span>
+      )
+    }
+
+    return (
+      <span
+        key={role}
+        className={`inline-flex items-center gap-1 rounded-full pl-2.5 ${canEdit ? 'pr-1.5' : 'pr-2.5'} py-1 text-xs font-medium ${roleChipClasses(role)}`}
+      >
+        {role}
+        {canEdit && (
+          <button
+            onClick={() => setConfirmRemove({ userId: u.id, role })}
+            aria-label={`Quitar rol ${role}`}
+            className="rounded-full p-0.5 hover:bg-black/10 transition-colors cursor-pointer"
+          >
+            <IconX />
+          </button>
+        )}
+      </span>
+    )
+  }
+
   if (!canView) {
     return (
       <Layout>
@@ -133,16 +210,25 @@ export default function UsersPage() {
 
   return (
     <Layout>
-      <div className="px-8 py-8 max-w-6xl mx-auto">
+      <div className="px-8 py-8 max-w-5xl mx-auto">
 
         {/* Encabezado */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
           <div>
             <h1 className="text-xl font-semibold text-slate-900">Usuarios y roles</h1>
             {!loading && (
-              <p className="text-sm text-slate-400 mt-0.5">{users.length} usuarios en total</p>
+              <p className="text-sm text-slate-400 mt-0.5">
+                {users.length} usuarios · {roles.length} roles disponibles en el realm
+              </p>
             )}
           </div>
+          <input
+            value={filter}
+            onChange={e => setFilter(e.target.value)}
+            placeholder="Filtrar por usuario, email o rol…"
+            aria-label="Filtrar usuarios"
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition w-72"
+          />
         </div>
 
         {/* Banner de error de acción (asignar/quitar), dismissible */}
@@ -159,148 +245,134 @@ export default function UsersPage() {
           </div>
         )}
 
-        {/* Tabla */}
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-          {error && (
-            <p className="px-6 py-4 text-sm text-red-500 border-b border-slate-100">{error}</p>
-          )}
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50">
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Usuario</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Email</th>
-                  <th className="px-5 py-3 text-center text-xs font-semibold text-slate-400 uppercase tracking-wide">Estado</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Roles</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {loading && (
-                  <tr>
-                    <td colSpan={4} className="px-5 py-12 text-center text-sm text-slate-300">
-                      Cargando…
-                    </td>
-                  </tr>
-                )}
-                {!loading && !error && users.length === 0 && (
-                  <tr>
-                    <td colSpan={4} className="px-5 py-12 text-center text-sm text-slate-300">
-                      No se encontraron usuarios.
-                    </td>
-                  </tr>
-                )}
-                {!loading && users.map(u => {
-                  const isSelf = user?.username === u.username
-                  const available = roles.filter(r => !u.realmRoles.includes(r.name))
-                  const selected = addSelections[u.id] ?? ''
-                  const addKey = `${u.id}:${selected}`
-                  const addPending = pending === addKey && selected !== ''
-
-                  return (
-                    <tr key={u.id} className="hover:bg-blue-50/50 transition-colors align-top">
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-sm font-bold shrink-0">
-                            {u.username?.[0]?.toUpperCase()}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-medium text-slate-900 truncate">{u.username}</p>
-                            {canEdit && isSelf && (
-                              <p className="text-xs text-amber-600 mt-0.5">Estás editando tus propios roles</p>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-5 py-4 text-slate-600">{u.email ?? '—'}</td>
-                      <td className="px-5 py-4 text-center">
-                        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          u.enabled ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-400'
-                        }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${u.enabled ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                          {u.enabled ? 'Habilitado' : 'Deshabilitado'}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          {u.realmRoles.map(role => {
-                            const key = `${u.id}:${role}`
-                            const isConfirming = confirmRemove?.userId === u.id && confirmRemove.role === role
-                            const isRemoving = pending === key
-
-                            if (isConfirming) {
-                              return (
-                                <span key={role} className="inline-flex items-center gap-1.5 rounded-full bg-red-50 pl-2.5 pr-1.5 py-1 text-xs">
-                                  <span className="text-red-600">¿Quitar {role}?</span>
-                                  <button
-                                    onClick={() => handleRemove(u.id, role)}
-                                    disabled={isRemoving}
-                                    className="font-medium text-red-600 hover:text-red-800 disabled:opacity-50 cursor-pointer"
-                                  >
-                                    {isRemoving ? '…' : 'Sí'}
-                                  </button>
-                                  <button
-                                    onClick={() => setConfirmRemove(null)}
-                                    className="text-slate-400 hover:text-slate-600 cursor-pointer"
-                                  >
-                                    No
-                                  </button>
-                                </span>
-                              )
-                            }
-
-                            return (
-                              <span
-                                key={role}
-                                className={`inline-flex items-center gap-1 rounded-full pl-2.5 ${canEdit ? 'pr-1.5' : 'pr-2.5'} py-1 text-xs font-medium ${roleChipClasses(role)}`}
-                              >
-                                {role}
-                                {canEdit && (
-                                  <button
-                                    onClick={() => setConfirmRemove({ userId: u.id, role })}
-                                    aria-label={`Quitar rol ${role}`}
-                                    className="rounded-full p-0.5 hover:bg-black/10 transition-colors cursor-pointer"
-                                  >
-                                    <IconX />
-                                  </button>
-                                )}
-                              </span>
-                            )
-                          })}
-
-                          {u.realmRoles.length === 0 && !canEdit && (
-                            <span className="text-xs text-slate-300">Sin roles</span>
-                          )}
-
-                          {canEdit && available.length > 0 && (
-                            <span className="inline-flex items-center gap-1">
-                              <select
-                                value={selected}
-                                onChange={e => setAddSelections(prev => ({ ...prev, [u.id]: e.target.value }))}
-                                aria-label={`Agregar rol a ${u.username}`}
-                                className="rounded-full border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition cursor-pointer"
-                              >
-                                <option value="">+ Agregar rol</option>
-                                {available.map(r => (
-                                  <option key={r.name} value={r.name}>{r.name}</option>
-                                ))}
-                              </select>
-                              <button
-                                onClick={() => handleAssign(u.id)}
-                                disabled={!selected || addPending}
-                                className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                              >
-                                {addPending ? '…' : 'Agregar'}
-                              </button>
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+        {error && (
+          <div className="mb-5 rounded-xl bg-red-50 border border-red-100 px-4 py-3">
+            <p className="text-sm text-red-600">{error}</p>
           </div>
+        )}
+
+        {loading && (
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm px-6 py-16 text-center text-sm text-slate-300">
+            Cargando…
+          </div>
+        )}
+
+        {!loading && !error && visibleUsers.length === 0 && (
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm px-6 py-16 text-center text-sm text-slate-300">
+            {users.length === 0 ? 'No se encontraron usuarios.' : 'Ningún usuario coincide con el filtro.'}
+          </div>
+        )}
+
+        {/* Una tarjeta por usuario: la lista de roles es de largo variable y en una tabla
+            desalineaba todas las columnas. */}
+        <div className="space-y-4">
+          {!loading && visibleUsers.map(u => {
+            const isSelf = user?.username === u.username
+            const { business, permissions } = splitRoles(u.realmRoles)
+            const available = roles
+              .filter(r => !u.realmRoles.includes(r.name))
+              .sort((a, b) => a.name.localeCompare(b.name))
+            const availableBusiness = available.filter(r => isBusinessRole(r.name))
+            const availablePermissions = available.filter(r => !isBusinessRole(r.name))
+            const selected = addSelections[u.id] ?? ''
+            const addPending = pending === `${u.id}:${selected}` && selected !== ''
+
+            return (
+              <section
+                key={u.id}
+                data-testid="user-card"
+                className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden"
+              >
+
+                {/* Identidad y estado */}
+                <header className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-4 border-b border-slate-100 bg-slate-50/60">
+                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-sm font-bold shrink-0">
+                    {u.username?.[0]?.toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <h2 className="font-semibold text-slate-900 truncate">{u.username}</h2>
+                      {isSelf && (
+                        <span
+                          title="Estás editando tus propios roles"
+                          className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700 shrink-0"
+                        >
+                          Tú
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400 truncate">{u.email ?? 'Sin email'}</p>
+                  </div>
+                  <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium shrink-0 ${
+                    u.enabled ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-400'
+                  }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${u.enabled ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                    {u.enabled ? 'Habilitado' : 'Deshabilitado'}
+                  </span>
+                </header>
+
+                {/* Roles de negocio y permisos, en bloques separados */}
+                <div className="px-5 py-4 space-y-4">
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">
+                      Roles ({business.length})
+                    </p>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {business.length > 0
+                        ? business.map(role => renderChip(u, role))
+                        : <span className="text-xs text-slate-300">Sin roles asignados</span>}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">
+                      Permisos ({permissions.length})
+                    </p>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {permissions.length > 0
+                        ? permissions.map(role => renderChip(u, role))
+                        : <span className="text-xs text-slate-300">Sin permisos directos</span>}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Alta de rol, fuera del flujo de chips para que no se pierda entre ellos */}
+                {canEdit && available.length > 0 && (
+                  <footer className="flex flex-wrap items-center justify-end gap-2 px-5 py-3 border-t border-slate-100 bg-slate-50/60">
+                    <select
+                      value={selected}
+                      onChange={e => setAddSelections(prev => ({ ...prev, [u.id]: e.target.value }))}
+                      aria-label={`Agregar rol a ${u.username}`}
+                      className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition cursor-pointer"
+                    >
+                      <option value="">+ Agregar rol</option>
+                      {availableBusiness.length > 0 && (
+                        <optgroup label="Roles">
+                          {availableBusiness.map(r => (
+                            <option key={r.name} value={r.name}>{r.name}</option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {availablePermissions.length > 0 && (
+                        <optgroup label="Permisos">
+                          {availablePermissions.map(r => (
+                            <option key={r.name} value={r.name}>{r.name}</option>
+                          ))}
+                        </optgroup>
+                      )}
+                    </select>
+                    <button
+                      onClick={() => handleAssign(u.id)}
+                      disabled={!selected || addPending}
+                      className="rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                    >
+                      {addPending ? '…' : 'Agregar'}
+                    </button>
+                  </footer>
+                )}
+              </section>
+            )
+          })}
         </div>
       </div>
     </Layout>

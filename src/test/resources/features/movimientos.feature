@@ -28,6 +28,27 @@ Característica: API de movimientos de stock
     Entonces la respuesta tiene codigo 409
     Y la respuesta es un problema con formato RFC 7807
 
+  Escenario: quitar 4 de 6 unidades deja 2 en el producto
+    Dado que existe un producto con cantidad 6
+    Cuando registro una salida de 4 unidades
+    Entonces la respuesta tiene codigo 201
+    Y el campo "previousQuantity" vale 6
+    Y el campo "newQuantity" vale 2
+    Y el producto tiene cantidad 2
+
+  Escenario: sacar todo el stock lo deja en cero, no en negativo
+    Dado que existe un producto con cantidad 6
+    Cuando registro una salida de 6 unidades
+    Entonces la respuesta tiene codigo 201
+    Y el campo "newQuantity" vale 0
+    Y el producto tiene cantidad 0
+
+  Escenario: una salida de una unidad de mas no toca el stock
+    Dado que existe un producto con cantidad 6
+    Cuando registro una salida de 7 unidades
+    Entonces la respuesta tiene codigo 409
+    Y el producto tiene cantidad 6
+
   Escenario: un ajuste fija la cantidad exacta sin importar la anterior
     Dado que existe un producto con cantidad 10
     Cuando registro un ajuste a 99 unidades
