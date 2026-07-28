@@ -80,12 +80,10 @@ class ReportServiceIT extends AbstractIntegrationTest {
         saveMovement(c, MovementType.IN, 100); // los IN no cuentan como salida
         flush();
 
-        // El ranking se calcula sobre toda la tabla, que es compartida con los demas tests.
-        // Se filtra a los productos de este test para afirmar sobre el orden relativo sin
-        // depender de que nadie mas haya registrado salidas.
-        List<Long> mios = List.of(a.getId(), b.getId(), c.getId());
+    
+        List<Long> productosDelTest = List.of(a.getId(), b.getId(), c.getId());
         List<TopProductResponse> ranking = service.topProducts(50).stream()
-                .filter(t -> mios.contains(t.productId()))
+                .filter(t -> productosDelTest.contains(t.productId()))
                 .toList();
 
         assertThat(ranking).hasSize(3);

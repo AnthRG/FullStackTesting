@@ -45,7 +45,6 @@ dependencies {
 	testImplementation 'io.cucumber:cucumber-spring'
 	testImplementation 'io.cucumber:cucumber-junit-platform-engine'
 	testImplementation 'org.junit.platform:junit-platform-suite'
-	// El BOM de Spring Boot 4 ya no gestiona rest-assured, hay que fijar la version.
 	testImplementation 'io.rest-assured:rest-assured:5.5.2'
 	testImplementation 'org.springframework.boot:spring-boot-starter-actuator-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
@@ -72,10 +71,6 @@ sourceSets {
 	}
 }
 
-// RestAssured usa Groovy internamente y esta compilado contra Groovy 4. El BOM de Spring
-// Boot 4 sube Groovy a 5.0.x, cuyos metaclass internals cambiaron: toda peticion sin cuerpo
-// (GET, DELETE) revienta con NullPointerException dentro de RequestSpecificationImpl.groovy.
-// Se fija Groovy 4 solo en las configuraciones de test, que es donde vive RestAssured.
 configurations.matching { it.name.toLowerCase().startsWith('test') }.configureEach {
 	resolutionStrategy.eachDependency { details ->
 		if (details.requested.group == 'org.apache.groovy') {
