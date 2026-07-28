@@ -5,7 +5,10 @@ export interface UserWithRoles {
   username: string
   email: string | null
   enabled: boolean
+  /** Asignados directamente: los unicos que se pueden quitar. */
   realmRoles: string[]
+  /** Lo que el usuario tiene de verdad, incluido lo heredado de un rol compuesto. */
+  effectiveRoles: string[]
 }
 
 export interface Role {
