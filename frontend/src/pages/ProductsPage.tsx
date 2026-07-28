@@ -5,6 +5,7 @@ import { deleteProduct, listProducts } from '../productsApi'
 import type { Product, ProductStatus } from '../productsApi'
 import ProductModal from '../components/ProductModal'
 import ProductHistoryModal from '../components/ProductHistoryModal'
+import StockMovementModal from '../components/StockMovementModal'
 import Layout from '../components/Layout'
 import { getFreshToken } from '../auth/keycloak'
 
@@ -16,6 +17,7 @@ export default function ProductsPage() {
 
   const canManage = hasPermission('product:manage')
   const canSeeHistory = hasPermission('audit:view')
+  const canMoveStock = hasPermission('stock:manage')
 
   const [products, setProducts] = useState<Product[]>([])
   const [totalElements, setTotalElements] = useState(0)
@@ -32,6 +34,7 @@ export default function ProductsPage() {
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [historyProduct, setHistoryProduct] = useState<Product | null>(null)
+  const [movementProduct, setMovementProduct] = useState<Product | null>(null)
 
   const load = useCallback(async () => {
     const token = await getFreshToken()
@@ -238,6 +241,15 @@ export default function ProductsPage() {
                               </svg>
                             </button>
                           )}
+                          {canMoveStock && (
+                            <button
+                              onClick={() => setMovementProduct(p)}
+                              aria-label={`Registrar movimiento de ${p.name}`}
+                              className="text-xs font-medium text-emerald-600 hover:text-emerald-800 transition"
+                            >
+                              Movimiento
+                            </button>
+                          )}
                           {canManage && (
                             <>
                               <button
@@ -254,7 +266,7 @@ export default function ProductsPage() {
                               </button>
                             </>
                           )}
-                          {!canManage && !canSeeHistory && (
+                          {!canManage && !canSeeHistory && !canMoveStock && (
                             <span className="text-xs text-slate-300">Solo lectura</span>
                           )}
                         </span>
@@ -299,6 +311,16 @@ export default function ProductsPage() {
           key={editing?.id ?? 'new'}
           product={editing}
           onClose={() => setModalOpen(false)}
+          onSaved={load}
+        />
+      )}
+
+      {/* Movimiento de stock */}
+      {movementProduct && (
+        <StockMovementModal
+          key={movementProduct.id}
+          product={movementProduct}
+          onClose={() => setMovementProduct(null)}
           onSaved={load}
         />
       )}

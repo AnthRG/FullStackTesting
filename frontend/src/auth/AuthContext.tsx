@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { KeycloakTokenParsed } from 'keycloak-js'
 import type { User } from '../api'
-import keycloak, { initKeycloak, ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY } from './keycloak'
+import keycloak, { initKeycloak, logoutKeycloak, ACCESS_TOKEN_KEY, ID_TOKEN_KEY, REFRESH_TOKEN_KEY } from './keycloak'
 
 interface AuthState {
   user: User | null
@@ -25,11 +25,13 @@ type Claims = KeycloakTokenParsed & { preferred_username?: string; email?: strin
 function persistTokens() {
   if (keycloak.token) localStorage.setItem(ACCESS_TOKEN_KEY, keycloak.token)
   if (keycloak.refreshToken) localStorage.setItem(REFRESH_TOKEN_KEY, keycloak.refreshToken)
+  if (keycloak.idToken) localStorage.setItem(ID_TOKEN_KEY, keycloak.idToken)
 }
 
 function clearTokens() {
   localStorage.removeItem(ACCESS_TOKEN_KEY)
   localStorage.removeItem(REFRESH_TOKEN_KEY)
+  localStorage.removeItem(ID_TOKEN_KEY)
 }
 
 function currentUser(): User | null {
@@ -96,10 +98,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initKeycloak().then(() => keycloak.login())
   }
 
-  const logout = () => {
+  const logout = useCallback(() => {
+    // Limpiar localStorage no toca los tokens que keycloak-js tiene en memoria, que son
+    // los que arman el id_token_hint de la URL de logout. El redirect se lleva la pagina,
+    // asi que nada despues de logoutKeycloak() esta garantizado que corra.
     clearTokens()
-    keycloak.logout({ redirectUri: window.location.origin + '/login' })
-  }
+    setUser(null)
+    void logoutKeycloak()
+  }, [])
 
   return (
     <AuthContext.Provider value={{ user, loading, hasPermission, login, logout }}>
