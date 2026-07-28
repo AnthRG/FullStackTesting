@@ -2,26 +2,26 @@ name: Performance
 
 # Ejecucion manual: las pruebas de carga no van en cada pull request porque un runner
 # compartido no da latencias reproducibles. Este workflow existe para lanzarlas contra el
-# sistema ya desplegado (preview/staging) o, sin parametros, contra un stack efimero.
+# sistema ya desplegado en staging o, con "local", contra un stack efimero del runner.
+#
+# prod no es una opcion a proposito: los escenarios CREAN productos y movimientos, y eso
+# ensuciaria la base de produccion. Si algun dia hiciera falta medir prod, seria con un
+# escenario de solo lectura y una ventana acordada.
 on:
   workflow_dispatch:
     inputs:
+      entorno:
+        description: Contra que sistema se mide
+        type: choice
+        required: true
+        default: staging
+        options: [staging, local]
       escenario:
         description: Escenario de k6 a ejecutar
         type: choice
         required: true
         default: smoke
         options: [smoke, load, stress, concurrent]
-      base_url:
-        description: URL de la API desplegada (vacio = levantar el stack en el runner)
-        type: string
-        required: false
-        default: ''
-      keycloak_url:
-        description: URL de Keycloak del entorno desplegado
-        type: string
-        required: false
-        default: ''
       vus:
         description: Usuarios virtuales
         type: string
@@ -33,61 +33,62 @@ on:
         required: false
         default: '2m'
 
+concurrency:
+  group: performance-${{ inputs.entorno }}
+  cancel-in-progress: false
+
 jobs:
   k6:
-    name: k6 - ${{ inputs.escenario }}
+    name: k6 - ${{ inputs.escenario }} @ ${{ inputs.entorno }}
     runs-on: ubuntu-latest
     env:
       PERF_VUS: ${{ inputs.vus }}
       PERF_DURATION: ${{ inputs.duracion }}
       PERF_USERNAME: ${{ secrets.PERF_USERNAME || 'admin' }}
       PERF_PASSWORD: ${{ secrets.PERF_PASSWORD || 'admin' }}
+      # El compose base no publica puertos ni construye imagenes: eso lo aporta cada
+      # override. Para el stack efimero del runner hace falta el de desarrollo.
+      COMPOSE_FILE: docker-compose.yml:docker-compose.dev.yml
     steps:
       - name: Checkout del repo
         uses: actions/checkout@v4
 
-      - name: Levantar el stack efimero
-        if: ${{ inputs.base_url == '' }}
-        run: docker compose up -d --build db keycloak backend
-
-      - name: Esperar a que el backend responda
-        if: ${{ inputs.base_url == '' }}
+      - name: Resolver las URLs del entorno
         run: |
-          for i in $(seq 1 60); do
-            if curl -fsS http://localhost:8080/actuator/health >/dev/null 2>&1; then
-              echo "Backend listo."
-              exit 0
-            fi
-            echo "Esperando al backend... intento $i"
-            sleep 5
-          done
-          echo "::error::El backend no respondio a tiempo"
-          docker compose logs backend
-          exit 1
+          if [ "${{ inputs.entorno }}" = "staging" ]; then
+            echo "PERF_BASE_URL=https://api-stg.cloudsus.net" >> "$GITHUB_ENV"
+            echo "PERF_KEYCLOAK_URL=https://auth-stg.cloudsus.net" >> "$GITHUB_ENV"
+          else
+            # Nombres de servicio de la red de compose: k6 corre dentro de ella.
+            echo "PERF_BASE_URL=http://backend:8080" >> "$GITHUB_ENV"
+            echo "PERF_KEYCLOAK_URL=http://keycloak:8080" >> "$GITHUB_ENV"
+          fi
 
-      - name: Esperar a que el entorno desplegado responda
-        if: ${{ inputs.base_url != '' }}
-        run: curl -fsS "${{ inputs.base_url }}/actuator/health"
+      - name: Levantar el stack efimero
+        if: ${{ inputs.entorno == 'local' }}
+        run: docker compose up -d --build --wait db keycloak backend
+
+      - name: Comprobar que el entorno responde
+        if: ${{ inputs.entorno == 'staging' }}
+        run: curl -fsS "$PERF_BASE_URL/actuator/health"
+
+      # Calienta la JVM antes de medir: la primera peticion contra un backend frio paga
+      # el JIT y la inicializacion perezosa, y contamina los percentiles.
+      - name: Calentar con el smoke
+        if: ${{ inputs.escenario != 'smoke' }}
+        run: docker compose --profile perf run --rm k6 run /scripts/smoke.js
 
       - name: Ejecutar k6
-        env:
-          PERF_BASE_URL: ${{ inputs.base_url }}
-          PERF_KEYCLOAK_URL: ${{ inputs.keycloak_url }}
-        run: |
-          # Sin URL explicita se usan los defaults del compose (nombres de servicio).
-          if [ -z "$PERF_BASE_URL" ]; then
-            unset PERF_BASE_URL PERF_KEYCLOAK_URL
-          fi
-          docker compose --profile perf run --rm k6 run "/scripts/${{ inputs.escenario }}.js"
+        run: docker compose --profile perf run --rm k6 run "/scripts/${{ inputs.escenario }}.js"
 
       - name: Publicar resultados
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: k6-${{ inputs.escenario }}-results
+          name: k6-${{ inputs.escenario }}-${{ inputs.entorno }}
           path: performance/results
           if-no-files-found: warn
 
       - name: Apagar contenedores
-        if: ${{ always() && inputs.base_url == '' }}
+        if: ${{ always() && inputs.entorno == 'local' }}
         run: docker compose down -v

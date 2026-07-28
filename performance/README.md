@@ -15,8 +15,25 @@ del `docker-compose.yml` bajo el perfil `perf`, dentro de la misma red que el ba
 mismo comando funciona igual en Windows, macOS y Linux.
 
 ```bash
-docker compose up -d db keycloak backend
+cp .env.example .env          # define COMPOSE_FILE; sin esto el stack no arranca
+docker compose up -d --build db keycloak backend
 ```
+
+El `docker-compose.yml` es una **base neutral**: no publica puertos ni construye imagenes,
+eso lo aporta el override de cada entorno (`docker-compose.dev.yml` para local,
+`docker-compose.deploy.yml` para staging y prod). El `.env.example` trae
+`COMPOSE_FILE=docker-compose.yml:docker-compose.dev.yml`, que es lo que hace que un
+`docker compose up` a secas arme el stack de desarrollo. Sin `.env`, hay que pasarlo a mano:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build db keycloak backend
+```
+
+Los servicios `k6` y `jmeter` viven en la base con `profiles: ["perf"]`, asi que **no
+aparecen** en un `docker compose up` normal ni en los despliegues: se verifica con
+`docker compose -f docker-compose.yml -f docker-compose.deploy.yml config --services`, donde
+no salen. Estan en la base y no en un override propio para poder lanzarlos con cualquier
+combinacion de entornos sin repetir su definicion.
 
 ---
 
@@ -120,20 +137,28 @@ documentados en `.env.example`. Para cambiarlos basta editar el `.env` de la rai
 Los nombres de servicio (`backend`, `keycloak`) funcionan porque k6 corre dentro de la red de
 Compose. Por eso **no** se usa `host.docker.internal`, que se comporta distinto en cada SO.
 
-### Correr contra preview/staging
+### Correr contra staging
 
 Las pruebas de performance tienen sentido contra el sistema desplegado, no contra el build.
 Basta apuntar las URLs al entorno:
 
 ```bash
-PERF_BASE_URL=https://api.staging.ejemplo.com \
-PERF_KEYCLOAK_URL=https://auth.staging.ejemplo.com \
+PERF_BASE_URL=https://api-stg.cloudsus.net \
+PERF_KEYCLOAK_URL=https://auth-stg.cloudsus.net \
 PERF_USERNAME=carga PERF_PASSWORD=... \
 docker compose --profile perf run --rm k6 run /scripts/load.js
 ```
 
 En PowerShell la sintaxis de las variables cambia (`$env:PERF_BASE_URL="..."`), asi que lo
 mas comodo en Windows es dejarlas en el `.env`.
+
+Mas comodo todavia: el workflow **Performance** de GitHub Actions lo hace solo. Se lanza a
+mano eligiendo entorno y escenario, calienta con el smoke antes de medir y sube los
+resultados como artefacto.
+
+**Contra prod no se corre.** Los escenarios crean productos y movimientos, y eso ensuciaria
+la base de produccion; por eso el workflow ni siquiera ofrece esa opcion. Medir prod exigiria
+un escenario de solo lectura y una ventana acordada.
 
 ---
 
@@ -148,7 +173,9 @@ docker compose --profile perf run --rm \
   k6 run -o experimental-prometheus-rw /scripts/load.js
 ```
 
-Requiere el stack de observabilidad levantado (`docker compose up -d prometheus grafana`).
+Requiere el stack de observabilidad levantado. Tambien va por perfil, asi que hace falta
+`COMPOSE_PROFILES=observability` (ya viene en `.env.example`) o pasarlo a mano:
+`docker compose --profile observability up -d prometheus grafana`.
 Las series aparecen con el prefijo `k6_`.
 
 ---
