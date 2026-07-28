@@ -1,0 +1,86 @@
+name: Security Nightly
+
+# Lo lento y lo que depende de fuentes externas: el escaneo ZAP levanta un
+# contenedor de ~1 GB y Dependency-Check descarga la base del NVD. Ninguno de
+# los dos deberia poder tumbar un PR.
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: security-nightly-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # -------------------------------------------------------------------- ZAP
+  zap-scan:
+    name: zap-scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del repo
+        uses: actions/checkout@v4
+      - name: Configurar JDK 25 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Escaneo pasivo OWASP ZAP
+        run: ./gradlew zapScan --no-daemon
+
+      - name: Publicar reporte de ZAP
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-report
+          path: |
+            build/reports/security/zap.html
+            build/reports/tests/zapScan
+          if-no-files-found: warn
+
+  # ----------------------------------------------------------- DEPENDENCIAS
+  dependency-scan:
+    name: dependency-scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del repo
+        uses: actions/checkout@v4
+      - name: Configurar JDK 25 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Configurar Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # Sin este cache cada corrida vuelve a bajar el catalogo completo del NVD.
+      - name: Cache de la base del NVD
+        uses: actions/cache@v4
+        with:
+          path: ~/.gradle/dependency-check-data
+          key: nvd-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: nvd-${{ runner.os }}-
+
+      - name: OWASP Dependency-Check (backend)
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: ./gradlew dependencyCheckAnalyze --no-daemon
+
+      - name: npm audit (frontend)
+        working-directory: frontend
+        run: npm audit --audit-level=high
+
+      - name: Publicar reporte de dependencias
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-check-report
+          path: build/reports/security
+          if-no-files-found: warn
