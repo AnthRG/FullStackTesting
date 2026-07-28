@@ -91,8 +91,16 @@ function StatCard({ icon, label, value, loading }: StatCardProps) {
 }
 
 export default function HomePage() {
-  const { user, logout } = useAuth()
+  const { user, logout, hasPermission } = useAuth()
   const navigate = useNavigate()
+
+  // Cada widget se pide solo si el token lo permite. Sin esto el backend responde 403 y
+  // la pantalla se llena de "no se pudo cargar", que parece una caida y no una falta de
+  // permisos. El gating real sigue estando en el backend; esto es solo la UX.
+  const puedeVerReportes = hasPermission('report:view')
+  const puedeVerProductos = hasPermission('product:view')
+  const puedeVerMovimientos = hasPermission('stock:view')
+  const sinNadaQueVer = !puedeVerReportes && !puedeVerProductos && !puedeVerMovimientos
 
   const [summary, setSummary] = useState<ReportSummary | null>(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
@@ -176,13 +184,16 @@ export default function HomePage() {
     }
   }, [handleUnauthorized])
 
+  /* eslint-disable react-hooks/set-state-in-effect -- fetch-on-mount es el patrón estándar de carga de datos */
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount es el patrón estándar de carga de datos
-    loadSummary()
-    loadLowStock()
-    loadTopProducts()
-    loadMovements()
-  }, [loadSummary, loadLowStock, loadTopProducts, loadMovements])
+    if (puedeVerReportes) {
+      loadSummary()
+      loadLowStock()
+      loadTopProducts()
+    }
+    if (puedeVerMovimientos) loadMovements()
+  }, [puedeVerReportes, puedeVerMovimientos, loadSummary, loadLowStock, loadTopProducts, loadMovements])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   return (
     <Layout>
@@ -194,8 +205,21 @@ export default function HomePage() {
           <p className="text-sm text-slate-400 mt-1">Resumen del sistema de gestión de inventario</p>
         </div>
 
+        {sinNadaQueVer && (
+          <div
+            data-testid="sin-permisos"
+            className="rounded-2xl border border-slate-200 bg-slate-50 px-6 py-10 text-center"
+          >
+            <p className="text-base font-semibold text-slate-700">No tienes permisos asignados</p>
+            <p className="mt-1.5 text-sm text-slate-500">
+              Tu cuenta solo puede ver esta pantalla. Pide a un administrador que te asigne un rol
+              para acceder a productos, movimientos o reportes.
+            </p>
+          </div>
+        )}
+
         {/* ── Stat cards ── */}
-        {summaryError ? (
+        {!puedeVerReportes ? null : summaryError ? (
           <p className="mb-8 rounded-2xl border border-red-100 bg-red-50 px-5 py-4 text-sm text-red-600">{summaryError}</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
@@ -209,119 +233,125 @@ export default function HomePage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
 
           {/* Productos críticos */}
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100">
-              <h2 className="text-sm font-semibold text-slate-900">Productos críticos</h2>
-            </div>
-            {lowStockLoading && (
-              <div className="px-5 py-10 text-center text-sm text-slate-300">Cargando…</div>
-            )}
-            {!lowStockLoading && lowStockError && (
-              <p className="px-5 py-6 text-sm text-red-500">{lowStockError}</p>
-            )}
-            {!lowStockLoading && !lowStockError && lowStock.length === 0 && (
-              <div className="mx-5 my-5 flex items-center gap-3 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                <IconCheck />
-                Todo el stock por encima del mínimo.
+          {puedeVerReportes && (
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-100">
+                <h2 className="text-sm font-semibold text-slate-900">Productos críticos</h2>
               </div>
-            )}
-            {!lowStockLoading && !lowStockError && lowStock.length > 0 && (
-              <ul className="divide-y divide-slate-100">
-                {lowStock.map(p => (
-                  <li key={p.productId}>
-                    <Link
-                      to={`/movements?productId=${p.productId}`}
-                      className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-blue-50 transition-colors"
-                    >
-                      <div className="min-w-0">
-                        <p className="font-medium text-slate-900 truncate">{p.name}</p>
-                        <p className="text-xs text-slate-400 font-mono">{p.sku}</p>
-                      </div>
-                      <span className={`shrink-0 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        p.deficit > 0 ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
-                      }`}>
-                        {p.quantity} / mín {p.minimumStock}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+              {lowStockLoading && (
+                <div className="px-5 py-10 text-center text-sm text-slate-300">Cargando…</div>
+              )}
+              {!lowStockLoading && lowStockError && (
+                <p className="px-5 py-6 text-sm text-red-500">{lowStockError}</p>
+              )}
+              {!lowStockLoading && !lowStockError && lowStock.length === 0 && (
+                <div className="mx-5 my-5 flex items-center gap-3 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                  <IconCheck />
+                  Todo el stock por encima del mínimo.
+                </div>
+              )}
+              {!lowStockLoading && !lowStockError && lowStock.length > 0 && (
+                <ul className="divide-y divide-slate-100">
+                  {lowStock.map(p => (
+                    <li key={p.productId}>
+                      <Link
+                        to={`/movements?productId=${p.productId}`}
+                        className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-blue-50 transition-colors"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-medium text-slate-900 truncate">{p.name}</p>
+                          <p className="text-xs text-slate-400 font-mono">{p.sku}</p>
+                        </div>
+                        <span className={`shrink-0 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          p.deficit > 0 ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
+                        }`}>
+                          {p.quantity} / mín {p.minimumStock}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
 
           {/* Más vendidos */}
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-900">Más vendidos</h2>
-              <Link to="/reports" className="text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors">
-                Ver reporte →
-              </Link>
-            </div>
-            {topLoading && (
-              <div className="px-5 py-10 text-center text-sm text-slate-300">Cargando…</div>
-            )}
-            {!topLoading && topError && (
-              <p className="px-5 py-6 text-sm text-red-500">{topError}</p>
-            )}
-            {!topLoading && !topError && topProducts.length === 0 && (
-              <p className="px-5 py-10 text-center text-sm text-slate-300">Aún no hay salidas de stock registradas.</p>
-            )}
-            {!topLoading && !topError && topProducts.length > 0 && (
-              <ul className="divide-y divide-slate-100">
-                {topProducts.map((p, i) => (
-                  <li key={p.productId} className="flex items-center justify-between gap-3 px-5 py-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <span className="shrink-0 w-5 text-xs font-semibold text-slate-400 tabular-nums">{i + 1}</span>
-                      <div className="min-w-0">
-                        <p className="font-medium text-slate-900 truncate text-sm">{p.productName}</p>
-                        <p className="text-xs text-slate-400 font-mono">{p.productSku}</p>
+          {puedeVerReportes && (
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-slate-900">Más vendidos</h2>
+                <Link to="/reports" className="text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors">
+                  Ver reporte →
+                </Link>
+              </div>
+              {topLoading && (
+                <div className="px-5 py-10 text-center text-sm text-slate-300">Cargando…</div>
+              )}
+              {!topLoading && topError && (
+                <p className="px-5 py-6 text-sm text-red-500">{topError}</p>
+              )}
+              {!topLoading && !topError && topProducts.length === 0 && (
+                <p className="px-5 py-10 text-center text-sm text-slate-300">Aún no hay salidas de stock registradas.</p>
+              )}
+              {!topLoading && !topError && topProducts.length > 0 && (
+                <ul className="divide-y divide-slate-100">
+                  {topProducts.map((p, i) => (
+                    <li key={p.productId} className="flex items-center justify-between gap-3 px-5 py-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="shrink-0 w-5 text-xs font-semibold text-slate-400 tabular-nums">{i + 1}</span>
+                        <div className="min-w-0">
+                          <p className="font-medium text-slate-900 truncate text-sm">{p.productName}</p>
+                          <p className="text-xs text-slate-400 font-mono">{p.productSku}</p>
+                        </div>
                       </div>
-                    </div>
-                    <p className="shrink-0 text-sm font-medium text-slate-900 tabular-nums">{p.unitsOut} un.</p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+                      <p className="shrink-0 text-sm font-medium text-slate-900 tabular-nums">{p.unitsOut} un.</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
 
           {/* Historial reciente */}
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-900">Historial reciente</h2>
-              <Link to="/movements" className="text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors">
-                Ver todo →
-              </Link>
+          {puedeVerMovimientos && (
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-slate-900">Historial reciente</h2>
+                <Link to="/movements" className="text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors">
+                  Ver todo →
+                </Link>
+              </div>
+              {movementsLoading && (
+                <div className="px-5 py-10 text-center text-sm text-slate-300">Cargando…</div>
+              )}
+              {!movementsLoading && movementsError && (
+                <p className="px-5 py-6 text-sm text-red-500">{movementsError}</p>
+              )}
+              {!movementsLoading && !movementsError && recentMovements.length === 0 && (
+                <p className="px-5 py-10 text-center text-sm text-slate-300">Sin movimientos registrados.</p>
+              )}
+              {!movementsLoading && !movementsError && recentMovements.length > 0 && (
+                <ul className="divide-y divide-slate-100">
+                  {recentMovements.map(m => (
+                    <li key={m.id} className="flex items-center justify-between gap-3 px-5 py-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className={`shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${TYPE_BADGES[m.movementType].classes}`}>
+                          {TYPE_BADGES[m.movementType].label}
+                        </span>
+                        <p className="font-medium text-slate-900 truncate text-sm">{m.productName}</p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className={`text-sm font-medium tabular-nums ${QUANTITY_CLASSES[m.movementType]}`}>
+                          {formatQuantity(m.movementType, m.quantity)}
+                        </p>
+                        <p className="text-xs text-slate-400">{formatShortDate(m.createdAt)}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
-            {movementsLoading && (
-              <div className="px-5 py-10 text-center text-sm text-slate-300">Cargando…</div>
-            )}
-            {!movementsLoading && movementsError && (
-              <p className="px-5 py-6 text-sm text-red-500">{movementsError}</p>
-            )}
-            {!movementsLoading && !movementsError && recentMovements.length === 0 && (
-              <p className="px-5 py-10 text-center text-sm text-slate-300">Sin movimientos registrados.</p>
-            )}
-            {!movementsLoading && !movementsError && recentMovements.length > 0 && (
-              <ul className="divide-y divide-slate-100">
-                {recentMovements.map(m => (
-                  <li key={m.id} className="flex items-center justify-between gap-3 px-5 py-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <span className={`shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${TYPE_BADGES[m.movementType].classes}`}>
-                        {TYPE_BADGES[m.movementType].label}
-                      </span>
-                      <p className="font-medium text-slate-900 truncate text-sm">{m.productName}</p>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <p className={`text-sm font-medium tabular-nums ${QUANTITY_CLASSES[m.movementType]}`}>
-                        {formatQuantity(m.movementType, m.quantity)}
-                      </p>
-                      <p className="text-xs text-slate-400">{formatShortDate(m.createdAt)}</p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          )}
 
         </div>
       </div>
