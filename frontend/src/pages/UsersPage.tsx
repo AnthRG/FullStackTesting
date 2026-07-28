@@ -109,7 +109,7 @@ export default function UsersPage() {
     return ordenados.filter(u =>
       u.username.toLowerCase().includes(needle) ||
       (u.email ?? '').toLowerCase().includes(needle) ||
-      u.realmRoles.some(r => r.toLowerCase().includes(needle)),
+      u.effectiveRoles.some(r => r.toLowerCase().includes(needle)),
     )
   }, [users, filter])
 
@@ -151,6 +151,22 @@ export default function UsersPage() {
     const key = `${u.id}:${role}`
     const isConfirming = confirmRemove?.userId === u.id && confirmRemove.role === role
     const isRemoving = pending === key
+
+    // Heredado de un rol compuesto: no hay asignacion directa que borrar. Ofrecer la X
+    // seria mentir, porque Keycloak devolveria 204 y el permiso seguiria en el token.
+    const heredado = !u.realmRoles.includes(role)
+    if (heredado) {
+      return (
+        <span
+          key={role}
+          title="Heredado de un rol. Para revocarlo hay que quitar el rol que lo incluye."
+          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium opacity-60 ring-1 ring-inset ring-slate-300 ${roleChipClasses(role)}`}
+        >
+          {role}
+          <span aria-hidden className="text-[10px]">↗</span>
+        </span>
+      )
+    }
 
     if (isConfirming) {
       return (
@@ -268,9 +284,12 @@ export default function UsersPage() {
         <div className="space-y-4">
           {!loading && visibleUsers.map(u => {
             const isSelf = user?.username === u.username
-            const { business, permissions } = splitRoles(u.realmRoles)
+            // Se dibuja lo efectivo, no lo directo: es lo que el usuario puede hacer.
+            const { business, permissions } = splitRoles(u.effectiveRoles)
+            // Se ofrece lo que el usuario no tiene ni por herencia: asignar algo que ya
+            // recibe de un compuesto no cambia nada y solo ensucia la lista.
             const available = roles
-              .filter(r => !u.realmRoles.includes(r.name))
+              .filter(r => !u.effectiveRoles.includes(r.name))
               .sort((a, b) => a.name.localeCompare(b.name))
             const availableBusiness = available.filter(r => isBusinessRole(r.name))
             const availablePermissions = available.filter(r => !isBusinessRole(r.name))

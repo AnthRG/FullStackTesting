@@ -127,16 +127,23 @@ public class KeycloakAdminClient {
     // ------------------------------------------------------------------ helpers
 
     private UserRolesView toView(KcUser user, String token) {
+        List<String> directos = realmRoles("", user.id(), token);
+        // /composite expande los roles compuestos: INVENTORY_VIEWER trae consigo
+        // product:view, report:view y stock:view aunque nadie los asigno a mano.
+        List<String> efectivos = realmRoles("/composite", user.id(), token);
+        return new UserRolesView(
+                user.id(), user.username(), user.email(),
+                user.enabled() != null && user.enabled(), directos, efectivos);
+    }
+
+    private List<String> realmRoles(String sufijo, String userId, String token) {
         KcRole[] roles = rest.get()
-                .uri(adminBase() + "/users/{id}/role-mappings/realm", user.id())
+                .uri(adminBase() + "/users/{id}/role-mappings/realm" + sufijo, userId)
                 .header(HttpHeaders.AUTHORIZATION, bearer(token))
                 .retrieve()
                 .body(KcRole[].class);
-        List<String> names = roles == null ? List.of()
-                : Arrays.stream(roles).map(KcRole::name).filter(n -> !isBuiltin(n)).toList();
-        return new UserRolesView(
-                user.id(), user.username(), user.email(),
-                user.enabled() != null && user.enabled(), names);
+        return roles == null ? List.of()
+                : Arrays.stream(roles).map(KcRole::name).filter(n -> !isBuiltin(n)).sorted().toList();
     }
 
     private KcRole roleByName(String roleName, String token) {
