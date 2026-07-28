@@ -29,8 +29,25 @@ docker compose up -d db keycloak backend
 | Stress | `npm run perf:stress` | ¿Donde esta el punto de quiebre? Escalones de 20 → 50 → 100 → 150 usuarios. |
 | Concurrent | `npm run perf:concurrent` | ¿La concurrencia corrompe el stock? 20 usuarios escribiendo sobre el mismo producto. |
 
-Siempre correr **smoke primero**: si falla, los otros solo van a gastar minutos midiendo un
-entorno roto.
+Siempre correr **smoke primero**, por dos razones: si falla, los otros solo van a gastar
+minutos midiendo un entorno roto; y de paso calienta el sistema.
+
+### El arranque en frio y por que el smoke no mide latencia
+
+La primera peticion contra un backend recien levantado (o que lleva horas sin trafico)
+puede tardar segundos: la JVM todavia interpreta el bytecode en vez de compilarlo, Hibernate
+inicializa sus metadatos y el pool de conexiones abre la primera conexion. Despues, esa misma
+peticion baja a decenas de milisegundos.
+
+Por eso el smoke **no** aplica los umbrales de tiempo de respuesta del resto de la suite: con
+10 iteraciones, el p95 es practicamente "la peor peticion", y un unico pico de arranque en
+frio la tumbaria sin que nada este mal. El smoke verifica disponibilidad y correctitud
+(`http_req_failed` en 0 y `checks` al 100%), con un techo suelto de 5 s solo para detectar un
+sistema colgado.
+
+La latencia se mide en `load.js`, donde la rampa de subida calienta el sistema y hay miles de
+muestras que hacen del p95 un numero estable. Si un dia el load test tambien sale raro,
+correr el smoke antes y repetir.
 
 ### Que mide cada metrica
 
