@@ -18,12 +18,21 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.datos.outputs.tag }}
+      sha: ${{ steps.datos.outputs.sha }}
       owner: ${{ steps.datos.outputs.owner }}
     steps:
-      - name: Calcular tag y owner
+      - name: Checkout del repo
+        uses: actions/checkout@v4
+
+      # La imagen se etiqueta por hash del arbol, no del commit. Un merge de PR
+      # crea un commit nuevo pero deja el mismo arbol, asi que al promover
+      # staging -> prod el tag no cambia y se reusa la imagen ya validada. Si el
+      # contenido si difiere (un hotfix en prod), el arbol cambia y se reconstruye.
+      - name: Calcular tags y owner
         id: datos
         run: |
-          echo "tag=sha-$(echo ${{ github.sha }} | cut -c1-7)" >> "$GITHUB_OUTPUT"
+          echo "tag=tree-$(git rev-parse 'HEAD^{tree}' | cut -c1-12)" >> "$GITHUB_OUTPUT"
+          echo "sha=sha-$(echo ${{ github.sha }} | cut -c1-7)" >> "$GITHUB_OUTPUT"
           echo "owner=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
   build:
@@ -79,6 +88,7 @@ jobs:
           push: true
           tags: |
             ghcr.io/${{ needs.meta.outputs.owner }}/fullstacktesting-${{ matrix.componente }}:${{ needs.meta.outputs.tag }}
+            ghcr.io/${{ needs.meta.outputs.owner }}/fullstacktesting-${{ matrix.componente }}:${{ needs.meta.outputs.sha }}
             ghcr.io/${{ needs.meta.outputs.owner }}/fullstacktesting-${{ matrix.componente }}:${{ github.ref_name }}
           cache-from: type=gha,scope=${{ matrix.componente }}
           cache-to: type=gha,mode=max,scope=${{ matrix.componente }}
