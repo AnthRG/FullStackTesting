@@ -3,6 +3,7 @@ plugins {
 	id 'jacoco'
 	id 'org.springframework.boot' version '4.0.6'
 	id 'io.spring.dependency-management' version '1.1.7'
+	id 'org.owasp.dependencycheck' version '12.2.2'
 }
 
 group = 'pucmm.freddy'
@@ -63,6 +64,8 @@ dependencies {
 	testImplementation 'org.testcontainers:junit-jupiter'
 	testImplementation 'org.testcontainers:postgresql'
 	testImplementation 'com.github.dasniko:testcontainers-keycloak:3.7.0'
+	testImplementation 'com.nimbusds:nimbus-jose-jwt'
+	testImplementation 'org.zaproxy:zap-clientapi:1.16.0'
 }
 
 sourceSets {
@@ -86,10 +89,48 @@ jacoco {
 }
 
 tasks.named('test') {
-	useJUnitPlatform()
+	useJUnitPlatform {
+		excludeTags 'security'
+	}
 	systemProperty 'cucumber.junit-platform.naming-strategy', 'long'
 	systemProperty 'cucumber.plugin', 'pretty, html:build/reports/cucumber.html'
 	finalizedBy tasks.named('jacocoTestReport')
+}
+
+// Los tests de seguridad viven en el mismo source set pero fuera de 'test':
+// no cuentan para la cobertura y no alargan el ciclo normal de desarrollo.
+tasks.register('securityTest', Test) {
+	group = 'verification'
+	description = 'JWT, permisos, CORS y autenticacion. Gate de cada PR.'
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	useJUnitPlatform {
+		// Solo Jupiter: el suite de Cucumber vive en el mismo source set y falla
+		// al inicializar si un filtro de tags no le selecciona ningun escenario.
+		includeEngines 'junit-jupiter'
+		includeTags 'security & !zap'
+	}
+	shouldRunAfter tasks.named('test')
+	testLogging {
+		events 'passed', 'failed', 'skipped'
+	}
+}
+
+// El escaneo ZAP levanta un contenedor de ~1 GB y ataca la app: fuera del gate
+// de PR, se corre en el job nocturno.
+tasks.register('zapScan', Test) {
+	group = 'verification'
+	description = 'Escaneo OWASP ZAP contra la app levantada en un puerto aleatorio.'
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	useJUnitPlatform {
+		includeEngines 'junit-jupiter'
+		includeTags 'zap'
+	}
+	testLogging {
+		events 'passed', 'failed', 'skipped'
+		showStandardStreams = true
+	}
 }
 
 tasks.named('jacocoTestReport') {
@@ -123,4 +164,23 @@ jacocoTestCoverageVerification {
 
 tasks.named('check') {
 	dependsOn tasks.named('jacocoTestCoverageVerification')
+}
+
+// Deliberadamente fuera de 'check': un CVE publicado hoy no puede romper un PR
+// que no toco dependencias. Corre en su propio job y en el nocturno.
+dependencyCheck {
+	formats = ['HTML', 'JSON']
+	outputDirectory = layout.buildDirectory.dir('reports/security').get().asFile.path
+	suppressionFile = 'config/owasp-suppressions.xml'
+	failBuildOnCVSS = 7.0f
+	skipConfigurations = ['developmentOnly']
+	nvd {
+		apiKey = System.getenv('NVD_API_KEY')
+		delay = System.getenv('NVD_API_KEY') ? 1000 : 8000
+	}
+	analyzers {
+		nodeEnabled = false
+		nodeAuditEnabled = false
+		assemblyEnabled = false
+	}
 }

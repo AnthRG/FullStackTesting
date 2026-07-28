@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+
+    <!--
+    Cada supresion necesita: CVE, por que no aplica y cuando se revisa.
+    Sin fecha de revision esto se convierte en un basurero permanente.
+
+    Ejemplo:
+    <suppress until="2026-12-31Z">
+        <notes>CVE-XXXX-YYYY solo aplica al parser XML del modulo servidor, que no usamos.</notes>
+        <packageUrl regex="true">^pkg:maven/grupo/artefacto@.*$</packageUrl>
+        <cve>CVE-XXXX-YYYY</cve>
+    </suppress>
+    -->
+
+</suppressions>
