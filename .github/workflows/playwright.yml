@@ -2,13 +2,16 @@ name: Playwright E2E Tests
 
 on:
   push:
-    branches: [main]
+    branches: [dev, staging, prod]
   pull_request:
-    branches: [main]
+    branches: [dev, staging, prod]
 
 concurrency:
   group: playwright-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  COMPOSE_FILE: docker-compose.yml:docker-compose.dev.yml
 
 jobs:
   e2e:

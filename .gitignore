@@ -28,8 +28,10 @@ application-secret*.yml
 .env
 .env.*
 !.env.example
+!.env.*.example
 *.pem
 *.key
+cloudflared/credentials.json
 
 ### IDEs ###
 # IntelliJ IDEA

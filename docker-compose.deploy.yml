@@ -1,0 +1,73 @@
+# Override unico para los entornos desplegados. ENTORNO (staging|prod) elige el
+# perfil de Spring, el realm de Keycloak y el ingress del tunnel. Las ramas dev,
+# staging y prod comparten este archivo: si difirieran, cada ascenso seria un
+# conflicto de merge.
+#   docker compose -f docker-compose.yml -f docker-compose.deploy.yml up -d
+
+services:
+  db:
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?falta POSTGRES_PASSWORD}
+    volumes:
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    restart: always
+
+  keycloak:
+    command: ["start", "--import-realm"]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://db:5432/keycloak
+      KC_DB_USERNAME: ${POSTGRES_USER:-postgres}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:?falta POSTGRES_PASSWORD}
+      KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL:?falta KEYCLOAK_PUBLIC_URL}
+      KC_PROXY_HEADERS: xforwarded
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?falta KEYCLOAK_ADMIN_PASSWORD}
+    volumes:
+      - ./keycloak/realm-${ENTORNO:?falta ENTORNO}.json:/opt/keycloak/data/import/realm.json:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: always
+
+  backend:
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-anthrg}/fullstacktesting-backend:${IMAGE_TAG:?falta IMAGE_TAG}
+    environment:
+      SPRING_PROFILES_ACTIVE: ${ENTORNO}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?falta POSTGRES_PASSWORD}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?falta KEYCLOAK_ADMIN_PASSWORD}
+    restart: always
+
+  frontend:
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-anthrg}/fullstacktesting-frontend:${IMAGE_TAG:?falta IMAGE_TAG}
+    restart: always
+
+  prometheus:
+    restart: always
+
+  loki:
+    restart: always
+
+  tempo:
+    restart: always
+
+  alloy:
+    restart: always
+
+  grafana:
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?falta GRAFANA_ADMIN_PASSWORD}
+    restart: always
+
+  cloudflared:
+    image: cloudflare/cloudflared:${CLOUDFLARED_VERSION:-latest}
+    command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run
+    volumes:
+      - ./cloudflared/config.${ENTORNO}.yml:/etc/cloudflared/config.yml:ro
+      - ./cloudflared/credentials.json:/etc/cloudflared/credentials.json:ro
+    depends_on:
+      - frontend
+      - backend
+      - keycloak
+    restart: always
+    networks:
+      - spring
