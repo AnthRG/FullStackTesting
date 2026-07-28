@@ -79,6 +79,34 @@ jobs:
         if: ${{ always() }}
         run: docker compose down -v
 
+  # -------------------------------------------------------------- SEGURIDAD
+  security-tests:
+    name: security-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del repo
+        uses: actions/checkout@v4
+      - name: Configurar JDK 25 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      # Levanta sus propios contenedores con Testcontainers: no depende del compose.
+      - name: JWT, permisos, CORS y autenticacion
+        run: ./gradlew securityTest --no-daemon
+
+      - name: Publicar reporte de seguridad
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-test-report
+          path: |
+            build/reports/tests/securityTest
+            build/test-results/securityTest
+          if-no-files-found: warn
+
   # --------------------------------------------------------------- FRONTEND
   frontend-build:
     name: frontend-build
