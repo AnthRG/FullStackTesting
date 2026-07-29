@@ -29,6 +29,10 @@ docker compose up -d db keycloak backend
 | Stress | `npm run perf:stress` | ¿Donde esta el punto de quiebre? Escalones de 20 → 50 → 100 → 150 usuarios. |
 | Concurrent | `npm run perf:concurrent` | ¿La concurrencia corrompe el stock? 20 usuarios escribiendo sobre el mismo producto. |
 
+Esos comandos corren contra el stack local. Contra staging se usa
+[`scripts/perf-staging.sh`](#correr-contra-staging), que ademas verifica el entorno y guarda
+cada corrida.
+
 Siempre correr **smoke primero**, por dos razones: si falla, los otros solo van a gastar
 minutos midiendo un entorno roto; y de paso calienta el sistema.
 
@@ -120,20 +124,51 @@ documentados en `.env.example`. Para cambiarlos basta editar el `.env` de la rai
 Los nombres de servicio (`backend`, `keycloak`) funcionan porque k6 corre dentro de la red de
 Compose. Por eso **no** se usa `host.docker.internal`, que se comporta distinto en cada SO.
 
-### Correr contra preview/staging
+### Correr contra staging
 
 Las pruebas de performance tienen sentido contra el sistema desplegado, no contra el build.
-Basta apuntar las URLs al entorno:
+Para eso esta `scripts/perf-staging.sh`, que ya apunta a las URLs de staging
+(`api-stg.cloudsus.net` / `auth-stg.cloudsus.net`), verifica el entorno antes de gastar
+minutos de carga y archiva cada corrida por separado:
+
+No hay nada que configurar: usa admin/admin, los usuarios semilla de
+`keycloak/realm-staging.json`. Para otras credenciales u otro entorno, copiar
+`.env.perf.staging.example` a `.env.perf.staging` (git lo ignora) y descomentar lo que haga
+falta.
 
 ```bash
-PERF_BASE_URL=https://api.staging.ejemplo.com \
-PERF_KEYCLOAK_URL=https://auth.staging.ejemplo.com \
-PERF_USERNAME=carga PERF_PASSWORD=... \
-docker compose --profile perf run --rm k6 run /scripts/load.js
+./scripts/perf-staging.sh                  # smoke + load
+./scripts/perf-staging.sh stress           # smoke + stress
+./scripts/perf-staging.sh jmeter           # smoke + el load en JMeter, con dashboard HTML
+./scripts/perf-staging.sh --preflight      # solo verificar, sin generar carga
+./scripts/perf-staging.sh --ver stress     # reimprimir el informe de la ultima corrida
+./scripts/perf-staging.sh --listar         # ver que corridas hay guardadas
 ```
 
-En PowerShell la sintaxis de las variables cambia (`$env:PERF_BASE_URL="..."`), asi que lo
-mas comodo en Windows es dejarlas en el `.env`.
+Cada corrida deja `performance/results/staging/<timestamp>/` con el informe legible
+(`.txt`), la salida completa (`.log`) y los datos crudos: `-summary.json` en k6, o
+`jmeter.jtl` mas la carpeta `jmeter-html/` con el dashboard navegable. Tanto k6 como
+JMeter escriben siempre en el mismo nombre de archivo, asi que sin ese archivado la
+corrida siguiente pisaria la anterior.
+
+> **JMeter siempre sale con codigo 0**, aunque falle el 100% de las peticiones: sus
+> aserciones no cambian el codigo de salida. Por eso el script lee el JTL al terminar y
+> aplica el mismo presupuesto de error que k6 (menos del 1%); si no, una corrida rota se
+> reportaria como exitosa.
+
+El preflight comprueba, en este orden: que Docker responda, que `/actuator/health` este UP,
+que Keycloak entregue un token con password grant y que **la API acepte ese token**. Ese
+ultimo paso es el que evita la falla mas confusa de todas: si al cliente `frontend` del
+realm le falta el audience mapper, el token sale bien de Keycloak pero el backend responde
+401 a todo y k6 mide minutos de 100% de errores sin decir por que.
+
+> **En produccion esta suite no aplica.** El cliente `frontend` de prod tiene los Direct
+> Access Grants deshabilitados a proposito (ver `scripts/build-realms.py`), y k6 se
+> autentica con password grant. El script lo detecta y lo dice explicitamente.
+
+Para apuntar a otro entorno, exportar `PERF_BASE_URL` y `PERF_KEYCLOAK_URL` antes de
+invocarlo. En PowerShell la sintaxis cambia (`$env:PERF_BASE_URL="..."`), asi que lo mas
+comodo en Windows es dejarlas en el `.env`.
 
 ---
 
@@ -164,14 +199,26 @@ Genera `performance/results/jmeter.jtl` (datos crudos) y
 *setUp Thread Group* pide el token a Keycloak y lo publica como propiedad global, asi que no
 hay que pegar ningun token a mano.
 
-Se parametriza con propiedades `-J` (JMeter no lee variables de entorno):
+Se parametriza con propiedades `-J` (JMeter no lee variables de entorno). Contra un
+entorno con TLS hay que pasar tambien `protocol` y `kc_protocol`, porque el plan asume
+`http` por defecto:
 
 ```bash
 docker compose --profile perf run --rm jmeter -n -f \
   -t /tests/inventario-load.jmx \
-  -Jhost=api.staging.ejemplo.com -Jport=443 -Jusers=50 -Jduration=300 \
+  -Jprotocol=https -Jhost=api-stg.cloudsus.net -Jport=443 \
+  -Jkc_protocol=https -Jkc_host=auth-stg.cloudsus.net -Jkc_port=443 \
+  -Jusers=50 -Jduration=300 \
   -l /results/jmeter.jtl -e -o /results/jmeter-html
 ```
+
+Contra staging es mas comodo `./scripts/perf-staging.sh jmeter`, que arma todo eso a
+partir de las URLs y ademas archiva el dashboard. El script pasa las propiedades por
+archivo (`-q`) en vez de `-J`: los argumentos de un proceso los lee cualquiera con `ps`,
+y entre ellos viaja la clave.
+
+El `-f` es necesario: sin el, JMeter aborta con *"folder not empty"* si ya existe el
+dashboard de una corrida anterior.
 
 Para verlo en la GUI clasica, abrir `performance/jmeter/inventario-load.jmx` con JMeter
 instalado. La GUI **solo** sirve para editar y depurar: medir con la GUI abierta falsea los

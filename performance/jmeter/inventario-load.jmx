@@ -18,6 +18,11 @@
             <stringProp name="Argument.value">${__P(port,8080)}</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
+          <elementProp name="protocol" elementType="Argument">
+            <stringProp name="Argument.name">protocol</stringProp>
+            <stringProp name="Argument.value">${__P(protocol,http)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
           <elementProp name="kc_host" elementType="Argument">
             <stringProp name="Argument.name">kc_host</stringProp>
             <stringProp name="Argument.value">${__P(kc_host,keycloak)}</stringProp>
@@ -26,6 +31,11 @@
           <elementProp name="kc_port" elementType="Argument">
             <stringProp name="Argument.name">kc_port</stringProp>
             <stringProp name="Argument.value">${__P(kc_port,8080)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="kc_protocol" elementType="Argument">
+            <stringProp name="Argument.name">kc_protocol</stringProp>
+            <stringProp name="Argument.value">${__P(kc_protocol,http)}</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="realm" elementType="Argument">
@@ -102,7 +112,7 @@
           </elementProp>
           <stringProp name="HTTPSampler.domain">${kc_host}</stringProp>
           <stringProp name="HTTPSampler.port">${kc_port}</stringProp>
-          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.protocol">${kc_protocol}</stringProp>
           <stringProp name="HTTPSampler.path">/realms/${realm}/protocol/openid-connect/token</stringProp>
           <stringProp name="HTTPSampler.method">POST</stringProp>
           <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
@@ -158,7 +168,7 @@ props.put("token", vars.get("access_token"))</stringProp>
           </elementProp>
           <stringProp name="HTTPSampler.domain">${host}</stringProp>
           <stringProp name="HTTPSampler.port">${port}</stringProp>
-          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.protocol">${protocol}</stringProp>
           <stringProp name="HTTPSampler.connect_timeout">5000</stringProp>
           <stringProp name="HTTPSampler.response_timeout">30000</stringProp>
         </ConfigTestElement>
