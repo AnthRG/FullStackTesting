@@ -2,10 +2,12 @@ package pucmm.freddy.fullstacktesting.api;
 
 import io.cucumber.java.es.Cuando;
 import io.cucumber.java.es.Dado;
+import io.cucumber.java.es.Entonces;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Steps del CRUD de productos. Cada step deja la respuesta en el {@link ScenarioContext};
@@ -23,7 +25,7 @@ public class ProductoSteps {
 
     @Dado("que existe un producto con cantidad {int}")
     public void queExisteUnProductoConCantidad(int cantidad) {
-        Map<String, Object> body = productoValido();
+        Map<String, Object> body = Payloads.productoValido();
         body.put("quantity", cantidad);
 
         Long id = api.comoAdmin().body(body).post("/api/products")
@@ -36,7 +38,7 @@ public class ProductoSteps {
 
     @Cuando("creo un producto valido")
     public void creoUnProductoValido() {
-        context.setResponse(api.autenticada().body(productoValido()).post("/api/products"));
+        context.setResponse(api.autenticada().body(Payloads.productoValido()).post("/api/products"));
         // Solo se lee el id cuando la creacion fue aceptada. Un 403 de Spring Security llega
         // sin cuerpo, asi que intentar parsearlo como JSON revienta antes del assert real.
         if (context.getResponse().statusCode() == 201) {
@@ -50,7 +52,7 @@ public class ProductoSteps {
                 .then().statusCode(200)
                 .extract().jsonPath().getString("sku");
 
-        Map<String, Object> duplicado = productoValido();
+        Map<String, Object> duplicado = Payloads.productoValido();
         duplicado.put("sku", sku);
 
         context.setResponse(api.autenticada().body(duplicado).post("/api/products"));
@@ -58,14 +60,14 @@ public class ProductoSteps {
 
     @Cuando("creo un producto sin nombre")
     public void creoUnProductoSinNombre() {
-        Map<String, Object> body = productoValido();
+        Map<String, Object> body = Payloads.productoValido();
         body.put("name", "");
         context.setResponse(api.autenticada().body(body).post("/api/products"));
     }
 
     @Cuando("creo un producto con precio negativo")
     public void creoUnProductoConPrecioNegativo() {
-        Map<String, Object> body = productoValido();
+        Map<String, Object> body = Payloads.productoValido();
         body.put("price", -5.00);
         context.setResponse(api.autenticada().body(body).post("/api/products"));
     }
@@ -111,19 +113,15 @@ public class ProductoSteps {
     }
 
     /**
-     * SKU unico por llamada: la base es la misma para toda la suite y el SKU tiene
-     * restriccion de unicidad, asi que un valor fijo haria fallar el segundo escenario.
+     * Relee el producto por API, sin tocar la respuesta del escenario: sirve para afirmar
+     * que un movimiento rechazado dejo el stock igual que antes, no solo que devolvio 409.
      */
-    private Map<String, Object> productoValido() {
-        Map<String, Object> body = new HashMap<>();
-        body.put("name", "Producto de prueba de contrato");
-        body.put("sku", "API-" + UUID.randomUUID().toString().substring(0, 8));
-        body.put("description", "Creado por los escenarios de Cucumber");
-        body.put("category", "Pruebas");
-        body.put("price", 19.99);
-        body.put("quantity", 10);
-        body.put("minimumStock", 2);
-        body.put("status", "ACTIVE");
-        return body;
+    @Entonces("el producto tiene cantidad {int}")
+    public void elProductoTieneCantidad(int esperada) {
+        int actual = api.comoAdmin().get("/api/products/" + context.getProductId())
+                .then().statusCode(200)
+                .extract().jsonPath().getInt("quantity");
+
+        assertThat(actual).isEqualTo(esperada);
     }
 }

@@ -37,6 +37,13 @@ def derivar(base: dict, opciones: dict) -> dict:
         cliente["webOrigins"] = [publico]
         cliente["directAccessGrantsEnabled"] = opciones["direct_access_grants"]
 
+        # El logout tambien valida su redirect contra una lista aparte. Si se queda con el
+        # valor de desarrollo, Keycloak rechaza el post_logout_redirect_uri del entorno
+        # publicado y "cerrar sesion" no cierra nada.
+        atributos = cliente.get("attributes")
+        if atributos and "post.logout.redirect.uris" in atributos:
+            atributos["post.logout.redirect.uris"] = f"{publico}/*"
+
     if not opciones["conservar_usuarios"]:
         realm.pop("users", None)
 
