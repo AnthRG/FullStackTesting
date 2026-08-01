@@ -26,6 +26,9 @@ export default defineConfig({
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
+  // Las capturas de documentacion no son una prueba funcional: viven en su propia
+  // configuracion (playwright.capturas.config.ts) para no correr en el porton de cada PR.
+  testIgnore: /capturas\.spec\.ts/,
   projects: [
     {
       name: 'chromium',
