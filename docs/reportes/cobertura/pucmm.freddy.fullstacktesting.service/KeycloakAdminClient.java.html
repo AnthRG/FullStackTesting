@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>KeycloakAdminClient.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">fullstacktesting</a> &gt; <a href="index.source.html" class="el_package">pucmm.freddy.fullstacktesting.service</a> &gt; <span class="el_source">KeycloakAdminClient.java</span></div><h1>KeycloakAdminClient.java</h1><pre class="source lang-java linenums">package pucmm.freddy.fullstacktesting.service;
+
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
+
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.MediaType;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.server.ResponseStatusException;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import pucmm.freddy.fullstacktesting.config.KeycloakAdminProperties;
+import pucmm.freddy.fullstacktesting.dto.RoleView;
+import pucmm.freddy.fullstacktesting.dto.UserRolesView;
+
+/**
+ * Cliente del backend hacia la Admin REST API de Keycloak.
+ *
+ * &lt;p&gt;Usa el {@link RestClient} de Spring (sin librerias extra). Cada operacion
+ * obtiene un token de administrador y llama los endpoints
+ * {@code /admin/realms/{realm}/...}. Se filtran los roles internos de Keycloak
+ * ({@code offline_access}, {@code uma_authorization}, {@code default-roles-*})
+ * para que la API exponga solo los roles del negocio.&lt;/p&gt;
+ */
+@Service
+public class KeycloakAdminClient {
+
+<span class="fc" id="L39">    private static final Set&lt;String&gt; BUILTIN_ROLES = Set.of(&quot;offline_access&quot;, &quot;uma_authorization&quot;);</span>
+
+    private final RestClient rest;
+    private final KeycloakAdminProperties props;
+
+<span class="fc" id="L44">    public KeycloakAdminClient(KeycloakAdminProperties props) {</span>
+<span class="fc" id="L45">        this.rest = RestClient.builder()</span>
+<span class="fc" id="L46">                .requestFactory(new JdkClientHttpRequestFactory())</span>
+<span class="fc" id="L47">                .defaultStatusHandler(HttpStatusCode::isError, (request, response) -&gt; {</span>
+<span class="fc" id="L48">                    String body = new String(response.getBody().readAllBytes(), StandardCharsets.UTF_8);</span>
+<span class="fc" id="L49">                    throw new ResponseStatusException(response.getStatusCode(),</span>
+<span class="fc" id="L50">                            &quot;Keycloak admin API &quot; + request.getMethod() + &quot; &quot; + request.getURI()</span>
+<span class="fc" id="L51">                                    + &quot; -&gt; &quot; + response.getStatusCode() + &quot; body=&quot; + body);</span>
+                })
+<span class="fc" id="L53">                .build();</span>
+<span class="fc" id="L54">        this.props = props;</span>
+<span class="fc" id="L55">    }</span>
+
+    // ----------------------------------------------------------------- lecturas
+
+    /** Lista todos los usuarios del realm con sus roles de realm. */
+    public List&lt;UserRolesView&gt; listUsers() {
+<span class="fc" id="L61">        String token = accessToken();</span>
+<span class="fc" id="L62">        KcUser[] users = rest.get()</span>
+<span class="fc" id="L63">                .uri(adminBase() + &quot;/users?max=200&quot;)</span>
+<span class="fc" id="L64">                .header(HttpHeaders.AUTHORIZATION, bearer(token))</span>
+<span class="fc" id="L65">                .retrieve()</span>
+<span class="fc" id="L66">                .body(KcUser[].class);</span>
+<span class="pc bpc" id="L67" title="1 of 2 branches missed.">        return users == null ? List.of()</span>
+<span class="fc" id="L68">                : Arrays.stream(users).map(u -&gt; toView(u, token)).toList();</span>
+    }
+
+    /** Devuelve un usuario y sus roles de realm. */
+    public UserRolesView getUser(String userId) {
+<span class="fc" id="L73">        String token = accessToken();</span>
+<span class="fc" id="L74">        KcUser user = rest.get()</span>
+<span class="fc" id="L75">                .uri(adminBase() + &quot;/users/{id}&quot;, userId)</span>
+<span class="fc" id="L76">                .header(HttpHeaders.AUTHORIZATION, bearer(token))</span>
+<span class="fc" id="L77">                .retrieve()</span>
+<span class="fc" id="L78">                .body(KcUser.class);</span>
+<span class="pc bpc" id="L79" title="1 of 2 branches missed.">        if (user == null) {</span>
+<span class="nc" id="L80">            throw new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Usuario no existe: &quot; + userId);</span>
+        }
+<span class="fc" id="L82">        return toView(user, token);</span>
+    }
+
+    /** Roles de realm asignables (excluye los internos de Keycloak). */
+    public List&lt;RoleView&gt; assignableRoles() {
+<span class="fc" id="L87">        KcRole[] roles = rest.get()</span>
+<span class="fc" id="L88">                .uri(adminBase() + &quot;/roles&quot;)</span>
+<span class="fc" id="L89">                .header(HttpHeaders.AUTHORIZATION, bearer(accessToken()))</span>
+<span class="fc" id="L90">                .retrieve()</span>
+<span class="fc" id="L91">                .body(KcRole[].class);</span>
+<span class="pc bpc" id="L92" title="1 of 2 branches missed.">        return roles == null ? List.of()</span>
+<span class="fc" id="L93">                : Arrays.stream(roles)</span>
+<span class="fc bfc" id="L94" title="All 2 branches covered.">                        .filter(r -&gt; !isBuiltin(r.name()))</span>
+<span class="fc" id="L95">                        .map(r -&gt; new RoleView(r.name(), r.description()))</span>
+<span class="fc" id="L96">                        .toList();</span>
+    }
+
+    // --------------------------------------------------------------- escrituras
+
+    /** Asigna un rol de realm existente a un usuario. */
+    public void assignRole(String userId, String roleName) {
+<span class="fc" id="L103">        String token = accessToken();</span>
+<span class="fc" id="L104">        KcRole role = roleByName(roleName, token);</span>
+<span class="fc" id="L105">        rest.post()</span>
+<span class="fc" id="L106">                .uri(adminBase() + &quot;/users/{id}/role-mappings/realm&quot;, userId)</span>
+<span class="fc" id="L107">                .header(HttpHeaders.AUTHORIZATION, bearer(token))</span>
+<span class="fc" id="L108">                .contentType(MediaType.APPLICATION_JSON)</span>
+<span class="fc" id="L109">                .body(List.of(role))</span>
+<span class="fc" id="L110">                .retrieve()</span>
+<span class="fc" id="L111">                .toBodilessEntity();</span>
+<span class="fc" id="L112">    }</span>
+
+    /** Quita un rol de realm a un usuario. */
+    public void removeRole(String userId, String roleName) {
+<span class="fc" id="L116">        String token = accessToken();</span>
+<span class="fc" id="L117">        KcRole role = roleByName(roleName, token);</span>
+<span class="fc" id="L118">        rest.method(HttpMethod.DELETE)</span>
+<span class="fc" id="L119">                .uri(adminBase() + &quot;/users/{id}/role-mappings/realm&quot;, userId)</span>
+<span class="fc" id="L120">                .header(HttpHeaders.AUTHORIZATION, bearer(token))</span>
+<span class="fc" id="L121">                .contentType(MediaType.APPLICATION_JSON)</span>
+<span class="fc" id="L122">                .body(List.of(role))</span>
+<span class="fc" id="L123">                .retrieve()</span>
+<span class="fc" id="L124">                .toBodilessEntity();</span>
+<span class="fc" id="L125">    }</span>
+
+    // ------------------------------------------------------------------ helpers
+
+    private UserRolesView toView(KcUser user, String token) {
+<span class="fc" id="L130">        List&lt;String&gt; directos = realmRoles(&quot;&quot;, user.id(), token);</span>
+        // /composite expande los roles compuestos: INVENTORY_VIEWER trae consigo
+        // product:view, report:view y stock:view aunque nadie los asigno a mano.
+<span class="fc" id="L133">        List&lt;String&gt; efectivos = realmRoles(&quot;/composite&quot;, user.id(), token);</span>
+<span class="fc" id="L134">        return new UserRolesView(</span>
+<span class="fc" id="L135">                user.id(), user.username(), user.email(),</span>
+<span class="pc bpc" id="L136" title="2 of 4 branches missed.">                user.enabled() != null &amp;&amp; user.enabled(), directos, efectivos);</span>
+    }
+
+    private List&lt;String&gt; realmRoles(String sufijo, String userId, String token) {
+<span class="fc" id="L140">        KcRole[] roles = rest.get()</span>
+<span class="fc" id="L141">                .uri(adminBase() + &quot;/users/{id}/role-mappings/realm&quot; + sufijo, userId)</span>
+<span class="fc" id="L142">                .header(HttpHeaders.AUTHORIZATION, bearer(token))</span>
+<span class="fc" id="L143">                .retrieve()</span>
+<span class="fc" id="L144">                .body(KcRole[].class);</span>
+<span class="pc bpc" id="L145" title="1 of 2 branches missed.">        return roles == null ? List.of()</span>
+<span class="pc bpc" id="L146" title="1 of 2 branches missed.">                : Arrays.stream(roles).map(KcRole::name).filter(n -&gt; !isBuiltin(n)).sorted().toList();</span>
+    }
+
+    private KcRole roleByName(String roleName, String token) {
+        try {
+<span class="fc" id="L151">            return rest.get()</span>
+<span class="fc" id="L152">                    .uri(adminBase() + &quot;/roles/{name}&quot;, roleName)</span>
+<span class="fc" id="L153">                    .header(HttpHeaders.AUTHORIZATION, bearer(token))</span>
+<span class="fc" id="L154">                    .retrieve()</span>
+<span class="fc" id="L155">                    .body(KcRole.class);</span>
+<span class="fc" id="L156">        } catch (ResponseStatusException e) {</span>
+<span class="pc bpc" id="L157" title="1 of 2 branches missed.">            if (e.getStatusCode().value() == 404) {</span>
+<span class="fc" id="L158">                throw new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Rol no existe: &quot; + roleName);</span>
+            }
+<span class="nc" id="L160">            throw e;</span>
+        }
+    }
+
+    /** Obtiene un token de administrador (grant password contra el auth-realm). */
+    private String accessToken() {
+<span class="fc" id="L166">        MultiValueMap&lt;String, String&gt; form = new LinkedMultiValueMap&lt;&gt;();</span>
+<span class="fc" id="L167">        form.add(&quot;grant_type&quot;, &quot;password&quot;);</span>
+<span class="fc" id="L168">        form.add(&quot;client_id&quot;, props.clientId());</span>
+<span class="fc" id="L169">        form.add(&quot;username&quot;, props.username());</span>
+<span class="fc" id="L170">        form.add(&quot;password&quot;, props.password());</span>
+<span class="fc" id="L171">        TokenResponse token = rest.post()</span>
+<span class="fc" id="L172">                .uri(props.serverUrl() + &quot;/realms/{realm}/protocol/openid-connect/token&quot;, props.authRealm())</span>
+<span class="fc" id="L173">                .contentType(MediaType.APPLICATION_FORM_URLENCODED)</span>
+<span class="fc" id="L174">                .body(form)</span>
+<span class="fc" id="L175">                .retrieve()</span>
+<span class="fc" id="L176">                .body(TokenResponse.class);</span>
+<span class="pc bpc" id="L177" title="2 of 4 branches missed.">        if (token == null || token.accessToken() == null) {</span>
+<span class="nc" id="L178">            throw new IllegalStateException(&quot;No se pudo obtener token de admin de Keycloak&quot;);</span>
+        }
+<span class="fc" id="L180">        return token.accessToken();</span>
+    }
+
+    private String adminBase() {
+<span class="fc" id="L184">        return props.serverUrl() + &quot;/admin/realms/&quot; + props.targetRealm();</span>
+    }
+
+    private static String bearer(String token) {
+<span class="fc" id="L188">        return &quot;Bearer &quot; + token;</span>
+    }
+
+    private static boolean isBuiltin(String roleName) {
+<span class="fc bfc" id="L192" title="All 4 branches covered.">        return BUILTIN_ROLES.contains(roleName) || roleName.startsWith(&quot;default-roles-&quot;);</span>
+    }
+
+    // ----------------------- Representaciones internas de Keycloak 
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+<span class="fc" id="L198">    record KcUser(String id, String username, String email, Boolean enabled) {</span>
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+<span class="fc" id="L202">    record KcRole(String id, String name, String description) {</span>
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+<span class="fc" id="L206">    record TokenResponse(@JsonProperty(&quot;access_token&quot;) String accessToken) {</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

@@ -3,6 +3,7 @@ package pucmm.freddy.fullstacktesting.service;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -279,7 +280,7 @@ class StockMovementServiceTest {
     void list_sinFiltros_retornaPaginaDeMovimientos() {
         Pageable pageable = PageRequest.of(0, 10);
         Page<StockMovement> page = new PageImpl<>(List.of(sampleMovement(1L)));
-        when(repository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
+        when(repository.findAll(ArgumentMatchers.<Specification<StockMovement>>any(), eq(pageable))).thenReturn(page);
 
         Page<StockMovementResponse> result = service.list(null, null, pageable);
 
@@ -290,7 +291,7 @@ class StockMovementServiceTest {
     void list_conProductId_filtraPorProducto() {
         Pageable pageable = PageRequest.of(0, 10);
         Page<StockMovement> page = new PageImpl<>(List.of(sampleMovement(1L)));
-        when(repository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
+        when(repository.findAll(ArgumentMatchers.<Specification<StockMovement>>any(), eq(pageable))).thenReturn(page);
 
         Page<StockMovementResponse> result = service.list(1L, null, pageable);
 
@@ -301,7 +302,7 @@ class StockMovementServiceTest {
     void list_conMovementType_filtraPorTipo() {
         Pageable pageable = PageRequest.of(0, 10);
         Page<StockMovement> page = new PageImpl<>(List.of(sampleMovement(1L)));
-        when(repository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
+        when(repository.findAll(ArgumentMatchers.<Specification<StockMovement>>any(), eq(pageable))).thenReturn(page);
 
         Page<StockMovementResponse> result = service.list(null, MovementType.IN, pageable);
 
@@ -312,7 +313,7 @@ class StockMovementServiceTest {
     void list_conProductIdYMovementType_combinaAmbosFiltros() {
         Pageable pageable = PageRequest.of(0, 10);
         Page<StockMovement> page = new PageImpl<>(List.of(sampleMovement(1L)));
-        when(repository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
+        when(repository.findAll(ArgumentMatchers.<Specification<StockMovement>>any(), eq(pageable))).thenReturn(page);
 
         Page<StockMovementResponse> result = service.list(1L, MovementType.OUT, pageable);
 
@@ -322,7 +323,7 @@ class StockMovementServiceTest {
     @Test
     void list_sinResultados_retornaPaginaVacia() {
         Pageable pageable = PageRequest.of(0, 10);
-        when(repository.findAll(any(Specification.class), eq(pageable))).thenReturn(Page.empty());
+        when(repository.findAll(ArgumentMatchers.<Specification<StockMovement>>any(), eq(pageable))).thenReturn(Page.empty());
 
         Page<StockMovementResponse> result = service.list(1L, MovementType.ADJUSTMENT, pageable);
 

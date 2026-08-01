@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BearerSubprotocolHandshakeInterceptor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">fullstacktesting</a> &gt; <a href="index.source.html" class="el_package">pucmm.freddy.fullstacktesting.ws</a> &gt; <span class="el_source">BearerSubprotocolHandshakeInterceptor.java</span></div><h1>BearerSubprotocolHandshakeInterceptor.java</h1><pre class="source lang-java linenums">package pucmm.freddy.fullstacktesting.ws;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.server.ServerHttpRequest;
+import org.springframework.http.server.ServerHttpResponse;
+import org.springframework.security.authentication.AbstractAuthenticationToken;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtException;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.stereotype.Component;
+import org.springframework.web.socket.WebSocketHandler;
+import org.springframework.web.socket.WebSocketHttpHeaders;
+import org.springframework.web.socket.server.HandshakeInterceptor;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Autentica el handshake del WebSocket.
+ *
+ * &lt;p&gt;El navegador no permite mandar el header {@code Authorization} al abrir un
+ * WebSocket, y meter el token en la URL lo dejaría en logs e historial. El cliente
+ * lo manda entonces como subprotocolo: {@code new WebSocket(url, ['bearer', token])},
+ * que viaja en {@code Sec-WebSocket-Protocol}. Aquí se toma el segundo valor, se
+ * valida con el mismo {@link JwtDecoder} del resource server y se exige el permiso
+ * {@code product:view} usando el mismo mapeo de authorities que SecurityConfig.&lt;/p&gt;
+ */
+@Component
+@RequiredArgsConstructor
+<span class="fc" id="L35">@Slf4j</span>
+public class BearerSubprotocolHandshakeInterceptor implements HandshakeInterceptor {
+
+    public static final String BEARER_PROTOCOL = &quot;bearer&quot;;
+    public static final String USERNAME_ATTRIBUTE = &quot;username&quot;;
+
+    private static final String REQUIRED_AUTHORITY = &quot;product:view&quot;;
+
+    private final JwtDecoder jwtDecoder;
+    private final JwtAuthenticationConverter jwtAuthenticationConverter;
+
+    @Override
+    public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response,
+                                   WebSocketHandler handler, Map&lt;String, Object&gt; attributes) {
+<span class="fc" id="L49">        List&lt;String&gt; protocols = requestedProtocols(request);</span>
+<span class="fc bfc" id="L50" title="All 4 branches covered.">        if (protocols.size() &lt; 2 || !BEARER_PROTOCOL.equalsIgnoreCase(protocols.get(0))) {</span>
+<span class="fc" id="L51">            return reject(response, HttpStatus.UNAUTHORIZED, &quot;handshake sin subprotocolo bearer&quot;);</span>
+        }
+
+        Jwt jwt;
+        try {
+<span class="fc" id="L56">            jwt = jwtDecoder.decode(protocols.get(1));</span>
+<span class="fc" id="L57">        } catch (JwtException ex) {</span>
+<span class="fc" id="L58">            return reject(response, HttpStatus.UNAUTHORIZED, &quot;token invalido: &quot; + ex.getMessage());</span>
+<span class="fc" id="L59">        }</span>
+
+<span class="fc bfc" id="L61" title="All 2 branches covered.">        if (!hasRequiredRole(jwt)) {</span>
+<span class="fc" id="L62">            return reject(response, HttpStatus.FORBIDDEN, &quot;token sin el rol product:view&quot;);</span>
+        }
+
+<span class="fc" id="L65">        attributes.put(USERNAME_ATTRIBUTE, jwt.getClaimAsString(&quot;preferred_username&quot;));</span>
+<span class="fc" id="L66">        return true;</span>
+    }
+
+    @Override
+    public void afterHandshake(ServerHttpRequest request, ServerHttpResponse response,
+                               WebSocketHandler handler, Exception exception) {
+        // Sin post-procesamiento: el rechazo ya se resolvio en beforeHandshake.
+<span class="fc" id="L73">    }</span>
+
+    private boolean hasRequiredRole(Jwt jwt) {
+<span class="fc" id="L76">        AbstractAuthenticationToken authentication = jwtAuthenticationConverter.convert(jwt);</span>
+<span class="fc bfc" id="L77" title="All 2 branches covered.">        return authentication != null &amp;&amp; authentication.getAuthorities().stream()</span>
+<span class="fc bfc" id="L78" title="All 2 branches covered.">                .anyMatch(authority -&gt; REQUIRED_AUTHORITY.equals(authority.getAuthority()));</span>
+    }
+
+    /** Sec-WebSocket-Protocol puede venir repetido o como una lista separada por comas. */
+    private List&lt;String&gt; requestedProtocols(ServerHttpRequest request) {
+<span class="fc" id="L83">        List&lt;String&gt; raw = request.getHeaders().get(WebSocketHttpHeaders.SEC_WEBSOCKET_PROTOCOL);</span>
+<span class="fc bfc" id="L84" title="All 2 branches covered.">        if (raw == null) return List.of();</span>
+<span class="fc" id="L85">        List&lt;String&gt; values = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L86" title="All 2 branches covered.">        for (String header : raw) {</span>
+<span class="fc bfc" id="L87" title="All 2 branches covered.">            for (String value : header.split(&quot;,&quot;)) {</span>
+<span class="fc" id="L88">                String trimmed = value.trim();</span>
+<span class="pc bpc" id="L89" title="1 of 2 branches missed.">                if (!trimmed.isEmpty()) values.add(trimmed);</span>
+            }
+<span class="fc" id="L91">        }</span>
+<span class="fc" id="L92">        return values;</span>
+    }
+
+    private boolean reject(ServerHttpResponse response, HttpStatus status, String reason) {
+<span class="fc" id="L96">        log.debug(&quot;WebSocket handshake rechazado ({}): {}&quot;, status.value(), reason);</span>
+<span class="fc" id="L97">        response.setStatusCode(status);</span>
+<span class="fc" id="L98">        return false;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

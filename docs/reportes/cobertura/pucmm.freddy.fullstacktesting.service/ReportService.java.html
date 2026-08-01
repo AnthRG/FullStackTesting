@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ReportService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">fullstacktesting</a> &gt; <a href="index.source.html" class="el_package">pucmm.freddy.fullstacktesting.service</a> &gt; <span class="el_source">ReportService.java</span></div><h1>ReportService.java</h1><pre class="source lang-java linenums">package pucmm.freddy.fullstacktesting.service;
+
+
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import pucmm.freddy.fullstacktesting.domain.ProductRepository;
+import pucmm.freddy.fullstacktesting.domain.ProductStatus;
+import pucmm.freddy.fullstacktesting.domain.StockMovementRepository;
+import pucmm.freddy.fullstacktesting.dto.InventorySummaryResponse;
+import pucmm.freddy.fullstacktesting.dto.LowStockProductResponse;
+import pucmm.freddy.fullstacktesting.dto.MovementsByTypeResponse;
+import pucmm.freddy.fullstacktesting.dto.TopProductResponse;
+import pucmm.freddy.fullstacktesting.exception.InvalidDateRangeException;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+
+public class ReportService {
+
+    private static final int MIN_LIMIT = 1;
+    private static final int MAX_LIMIT = 50;
+
+    private final ProductRepository productRepository;
+    private final StockMovementRepository stockMovementRepository;
+
+    @Transactional(readOnly = true)
+    public InventorySummaryResponse summary() {
+<span class="fc" id="L35">        return new InventorySummaryResponse(</span>
+<span class="fc" id="L36">                productRepository.count(),</span>
+<span class="fc" id="L37">                productRepository.countByStatus(ProductStatus.ACTIVE),</span>
+<span class="fc" id="L38">                productRepository.countByStatus(ProductStatus.INACTIVE),</span>
+<span class="fc" id="L39">                productRepository.sumTotalUnits(),</span>
+<span class="fc" id="L40">                productRepository.sumInventoryValue(),</span>
+<span class="fc" id="L41">                productRepository.countCriticalProducts(),</span>
+<span class="fc" id="L42">                stockMovementRepository.count());</span>
+    }
+
+    @Transactional(readOnly = true)
+    public List&lt;TopProductResponse&gt; topProducts(int limit) {
+<span class="fc" id="L47">        int safeLimit = Math.min(MAX_LIMIT, Math.max(MIN_LIMIT, limit));</span>
+<span class="fc" id="L48">        return stockMovementRepository.findTopProductsByUnitsOut(PageRequest.of(0, safeLimit));</span>
+    }
+
+    @Transactional(readOnly = true)
+    public List&lt;LowStockProductResponse&gt; lowStock() {
+<span class="fc" id="L53">        return productRepository.findLowStock();</span>
+    }
+
+    @Transactional(readOnly = true)
+    public List&lt;MovementsByTypeResponse&gt; movementsByType(LocalDate from, LocalDate to) {
+<span class="fc bfc" id="L58" title="All 6 branches covered.">        if (from != null &amp;&amp; to != null &amp;&amp; from.isAfter(to)) {</span>
+<span class="fc" id="L59">            throw new InvalidDateRangeException(from, to);</span>
+        }
+<span class="fc bfc" id="L61" title="All 2 branches covered.">        LocalDateTime fromDateTime = from != null ? from.atStartOfDay() : null;</span>
+        // El límite superior es exclusivo (inicio del día siguiente) para incluir todo el día 'to'.
+<span class="fc bfc" id="L63" title="All 2 branches covered.">        LocalDateTime toDateTime = to != null ? to.plusDays(1).atStartOfDay() : null;</span>
+<span class="fc" id="L64">        return stockMovementRepository.findMovementsByType(fromDateTime, toDateTime);</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

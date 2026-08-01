@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>NotificationWebSocketHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">fullstacktesting</a> &gt; <a href="index.source.html" class="el_package">pucmm.freddy.fullstacktesting.ws</a> &gt; <span class="el_source">NotificationWebSocketHandler.java</span></div><h1>NotificationWebSocketHandler.java</h1><pre class="source lang-java linenums">package pucmm.freddy.fullstacktesting.ws;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.stereotype.Component;
+import org.springframework.web.socket.CloseStatus;
+import org.springframework.web.socket.TextMessage;
+import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator;
+import org.springframework.web.socket.handler.SessionLimitExceededException;
+import org.springframework.web.socket.handler.TextWebSocketHandler;
+import pucmm.freddy.fullstacktesting.dto.SocketMessage;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
+
+import java.io.IOException;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * Mantiene el registro de sesiones abiertas y difunde las alertas a todas.
+ *
+ * &lt;p&gt;El broadcast nunca propaga errores: una sesión caída se descarta y las demás
+ * siguen recibiendo, para no tumbar el hilo que procesa el evento de dominio.&lt;/p&gt;
+ */
+@Component
+@RequiredArgsConstructor
+<span class="fc" id="L29">@Slf4j</span>
+public class NotificationWebSocketHandler extends TextWebSocketHandler {
+
+    private static final int SEND_TIME_LIMIT_MS = 5_000;
+    private static final int SEND_BUFFER_SIZE_BYTES = 512 * 1024;
+
+    private final ObjectMapper objectMapper;
+    private final Map&lt;String, WebSocketSession&gt; sessions = new ConcurrentHashMap&lt;&gt;();
+
+    @Override
+    public void afterConnectionEstablished(WebSocketSession session) {
+        // sendMessage no es thread-safe y el broadcast puede coincidir con un PING:
+        // el decorador serializa los envios por sesion y corta la que se atasque.
+<span class="fc" id="L42">        sessions.put(session.getId(), new ConcurrentWebSocketSessionDecorator(</span>
+                session, SEND_TIME_LIMIT_MS, SEND_BUFFER_SIZE_BYTES));
+<span class="fc" id="L44">    }</span>
+
+    @Override
+    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
+<span class="fc" id="L48">        sessions.remove(session.getId());</span>
+<span class="fc" id="L49">    }</span>
+
+    @Override
+    public void handleTransportError(WebSocketSession session, Throwable exception) {
+<span class="fc" id="L53">        log.debug(&quot;Error de transporte en la sesion {}: {}&quot;, session.getId(), exception.getMessage());</span>
+<span class="fc" id="L54">        sessions.remove(session.getId());</span>
+<span class="fc" id="L55">    }</span>
+
+    public void broadcast(SocketMessage message) {
+<span class="fc bfc" id="L58" title="All 2 branches covered.">        if (sessions.isEmpty()) return;</span>
+
+        String json;
+        try {
+<span class="fc" id="L62">            json = objectMapper.writeValueAsString(message);</span>
+<span class="fc" id="L63">        } catch (JacksonException ex) {</span>
+<span class="fc" id="L64">            log.error(&quot;No se pudo serializar el mensaje de WebSocket&quot;, ex);</span>
+<span class="fc" id="L65">            return;</span>
+<span class="fc" id="L66">        }</span>
+
+<span class="fc bfc" id="L68" title="All 2 branches covered.">        for (WebSocketSession session : sessions.values()) {</span>
+<span class="fc" id="L69">            send(session, json);</span>
+<span class="fc" id="L70">        }</span>
+<span class="fc" id="L71">    }</span>
+
+    public int openSessions() {
+<span class="fc" id="L74">        return sessions.size();</span>
+    }
+
+    private void send(WebSocketSession session, String json) {
+<span class="fc bfc" id="L78" title="All 2 branches covered.">        if (!session.isOpen()) {</span>
+<span class="fc" id="L79">            sessions.remove(session.getId());</span>
+<span class="fc" id="L80">            return;</span>
+        }
+        try {
+<span class="fc" id="L83">            session.sendMessage(new TextMessage(json));</span>
+<span class="fc" id="L84">        } catch (IOException | IllegalStateException | SessionLimitExceededException ex) {</span>
+<span class="fc" id="L85">            log.debug(&quot;No se pudo enviar a la sesion {}: {}&quot;, session.getId(), ex.getMessage());</span>
+<span class="fc" id="L86">            sessions.remove(session.getId());</span>
+<span class="fc" id="L87">        }</span>
+<span class="fc" id="L88">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

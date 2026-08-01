@@ -2,6 +2,7 @@ package pucmm.freddy.fullstacktesting.service;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -168,7 +169,7 @@ class ProductServiceTest {
     void list_sinFiltros_retornaPaginaDeProductos() {
         Pageable pageable = PageRequest.of(0, 10);
         Page<Product> page = new PageImpl<>(List.of(sampleProduct(1L)));
-        when(repository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
+        when(repository.findAll(ArgumentMatchers.<Specification<Product>>any(), eq(pageable))).thenReturn(page);
 
         Page<ProductResponse> result = service.list(null, null, pageable);
 
@@ -180,7 +181,7 @@ class ProductServiceTest {
     void list_conSearch_retornaSoloCoincidencias() {
         Pageable pageable = PageRequest.of(0, 10);
         Page<Product> page = new PageImpl<>(List.of(sampleProduct(1L)));
-        when(repository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
+        when(repository.findAll(ArgumentMatchers.<Specification<Product>>any(), eq(pageable))).thenReturn(page);
 
         Page<ProductResponse> result = service.list("Laptop", null, pageable);
 
@@ -191,7 +192,7 @@ class ProductServiceTest {
     void list_conStatus_retornaSoloEseStatus() {
         Pageable pageable = PageRequest.of(0, 10);
         Page<Product> page = new PageImpl<>(List.of(sampleProduct(1L)));
-        when(repository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
+        when(repository.findAll(ArgumentMatchers.<Specification<Product>>any(), eq(pageable))).thenReturn(page);
 
         Page<ProductResponse> result = service.list(null, ProductStatus.ACTIVE, pageable);
 
@@ -203,7 +204,7 @@ class ProductServiceTest {
     void list_conSearchYStatus_combinaAmbosFiltos() {
         Pageable pageable = PageRequest.of(0, 10);
         Page<Product> page = new PageImpl<>(List.of(sampleProduct(1L)));
-        when(repository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
+        when(repository.findAll(ArgumentMatchers.<Specification<Product>>any(), eq(pageable))).thenReturn(page);
 
         Page<ProductResponse> result = service.list("Laptop", ProductStatus.ACTIVE, pageable);
 
@@ -213,7 +214,7 @@ class ProductServiceTest {
     @Test
     void list_sinResultados_retornaPaginaVacia() {
         Pageable pageable = PageRequest.of(0, 10);
-        when(repository.findAll(any(Specification.class), eq(pageable)))
+        when(repository.findAll(ArgumentMatchers.<Specification<Product>>any(), eq(pageable)))
                 .thenReturn(Page.empty());
 
         Page<ProductResponse> result = service.list("XYZ", ProductStatus.INACTIVE, pageable);

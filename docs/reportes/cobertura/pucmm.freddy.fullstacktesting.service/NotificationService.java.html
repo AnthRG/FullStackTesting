@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>NotificationService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">fullstacktesting</a> &gt; <a href="index.source.html" class="el_package">pucmm.freddy.fullstacktesting.service</a> &gt; <span class="el_source">NotificationService.java</span></div><h1>NotificationService.java</h1><pre class="source lang-java linenums">package pucmm.freddy.fullstacktesting.service;
+
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import pucmm.freddy.fullstacktesting.domain.Notification;
+import pucmm.freddy.fullstacktesting.domain.NotificationRepository;
+import pucmm.freddy.fullstacktesting.domain.NotificationType;
+import pucmm.freddy.fullstacktesting.domain.Product;
+import pucmm.freddy.fullstacktesting.dto.NotificationListResponse;
+import pucmm.freddy.fullstacktesting.dto.NotificationResponse;
+import pucmm.freddy.fullstacktesting.exception.NotificationNotFoundException;
+
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.List;
+
+/**
+ * Alertas de stock del inventario.
+ *
+ * &lt;p&gt;Las notificaciones son &lt;b&gt;globales&lt;/b&gt;, no por usuario: cualquiera con
+ * {@code product:view} ve las mismas alertas y el estado leído/no leído es
+ * compartido por todo el equipo.&lt;/p&gt;
+ */
+@Service
+@RequiredArgsConstructor
+
+public class NotificationService {
+
+    private static final int MAX_ITEMS = 50;
+
+    private final NotificationRepository repository;
+    private final ApplicationEventPublisher eventPublisher;
+
+    /**
+     * Genera la alerta correspondiente si el producto &lt;b&gt;cruzó&lt;/b&gt; un umbral con este
+     * cambio. Solo se alerta en la transición, nunca en cada movimiento: si el producto
+     * ya venía bajo mínimo y baja más, no se emite nada. Un estado previo nulo
+     * (producto recién creado) cuenta como &quot;venía sano&quot;, así que un producto que nace
+     * bajo mínimo sí alerta.
+     *
+     * &lt;p&gt;La alerta se persiste dentro de la transacción del llamador; el push por
+     * WebSocket lo dispara el evento, ya después del commit.&lt;/p&gt;
+     */
+    @Transactional
+    public void evaluateStock(Product product, Integer previousQuantity, Integer previousMinimum) {
+<span class="fc" id="L51">        int quantity = product.getQuantity();</span>
+<span class="fc" id="L52">        int minimum = product.getMinimumStock();</span>
+
+<span class="fc bfc" id="L54" title="All 4 branches covered.">        boolean wasOut = previousQuantity != null &amp;&amp; previousQuantity == 0;</span>
+<span class="pc bpc" id="L55" title="1 of 4 branches missed.">        boolean wasLow = previousQuantity != null &amp;&amp; previousMinimum != null</span>
+<span class="fc bfc" id="L56" title="All 2 branches covered.">                &amp;&amp; previousQuantity &lt;= previousMinimum;</span>
+
+        NotificationType type;
+<span class="fc bfc" id="L59" title="All 4 branches covered.">        if (quantity == 0 &amp;&amp; !wasOut) {</span>
+            // Llegar a 0 gana sobre LOW_STOCK: una sola alerta por transición a cero,
+            // venga de stock sano o de un producto que ya estaba bajo mínimo.
+<span class="fc" id="L62">            type = NotificationType.OUT_OF_STOCK;</span>
+<span class="pc bpc" id="L63" title="1 of 6 branches missed.">        } else if (quantity &lt;= minimum &amp;&amp; !wasLow &amp;&amp; quantity &gt; 0) {</span>
+<span class="fc" id="L64">            type = NotificationType.LOW_STOCK;</span>
+        } else {
+<span class="fc" id="L66">            return;</span>
+        }
+
+<span class="fc" id="L69">        Notification saved = repository.save(build(product, type, quantity, minimum));</span>
+<span class="fc" id="L70">        eventPublisher.publishEvent(new NotificationCreatedEvent(NotificationResponse.from(saved)));</span>
+<span class="fc" id="L71">    }</span>
+
+    @Transactional(readOnly = true)
+    public NotificationListResponse list(boolean onlyUnread) {
+<span class="fc" id="L75">        Pageable limit = PageRequest.of(0, MAX_ITEMS);</span>
+<span class="fc bfc" id="L76" title="All 2 branches covered.">        List&lt;Notification&gt; found = onlyUnread</span>
+<span class="fc" id="L77">                ? repository.findLatestUnread(limit)</span>
+<span class="fc" id="L78">                : repository.findLatest(limit);</span>
+<span class="fc" id="L79">        return new NotificationListResponse(</span>
+<span class="fc" id="L80">                found.stream().map(NotificationResponse::from).toList(),</span>
+<span class="fc" id="L81">                repository.countByReadFalse());</span>
+    }
+
+    @Transactional
+    public void markRead(Long id) {
+<span class="fc" id="L86">        Notification notification = repository.findById(id)</span>
+<span class="fc" id="L87">                .orElseThrow(() -&gt; new NotificationNotFoundException(id));</span>
+<span class="fc bfc" id="L88" title="All 2 branches covered.">        if (!notification.isRead()) {</span>
+<span class="fc" id="L89">            notification.setRead(true);</span>
+<span class="fc" id="L90">            notification.setReadAt(LocalDateTime.now(ZoneId.systemDefault()));</span>
+<span class="fc" id="L91">            repository.save(notification);</span>
+        }
+<span class="fc" id="L93">    }</span>
+
+    @Transactional
+    public void markAllRead() {
+<span class="fc" id="L97">        repository.markAllRead(LocalDateTime.now(ZoneId.systemDefault()));</span>
+<span class="fc" id="L98">    }</span>
+
+    @Transactional(readOnly = true)
+    public long unreadCount() {
+<span class="fc" id="L102">        return repository.countByReadFalse();</span>
+    }
+
+    private Notification build(Product product, NotificationType type, int quantity, int minimum) {
+<span class="fc" id="L106">        Notification notification = new Notification();</span>
+<span class="fc" id="L107">        notification.setType(type);</span>
+<span class="fc" id="L108">        notification.setProduct(product);</span>
+<span class="fc" id="L109">        notification.setProductName(product.getName());</span>
+<span class="fc" id="L110">        notification.setProductSku(product.getSku());</span>
+<span class="fc" id="L111">        notification.setQuantity(quantity);</span>
+<span class="fc" id="L112">        notification.setMinimumStock(minimum);</span>
+<span class="fc" id="L113">        notification.setMessage(message(type, product, quantity, minimum));</span>
+<span class="fc" id="L114">        notification.setRead(false);</span>
+<span class="fc" id="L115">        return notification;</span>
+    }
+
+    private String message(NotificationType type, Product product, int quantity, int minimum) {
+<span class="fc bfc" id="L119" title="All 2 branches covered.">        return type == NotificationType.OUT_OF_STOCK</span>
+<span class="fc" id="L120">                ? &quot;Sin stock: %s (%s) se quedó en 0 unidades&quot;.formatted(product.getName(), product.getSku())</span>
+                : &quot;Stock bajo: %s (%s) tiene %d unidades y el mínimo es %d&quot;
+<span class="fc" id="L122">                        .formatted(product.getName(), product.getSku(), quantity, minimum);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

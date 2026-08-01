@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SecurityConfig.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">fullstacktesting</a> &gt; <a href="index.source.html" class="el_package">pucmm.freddy.fullstacktesting.config</a> &gt; <span class="el_source">SecurityConfig.java</span></div><h1>SecurityConfig.java</h1><pre class="source lang-java linenums">package pucmm.freddy.fullstacktesting.config;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.jwt.JwtClaimNames;
+import org.springframework.security.oauth2.jwt.JwtClaimValidator;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtValidators;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
+import java.util.Map;
+
+@Configuration
+@EnableMethodSecurity
+<span class="fc" id="L29">public class SecurityConfig {</span>
+
+    private static final String CSP_API =
+            &quot;default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'&quot;;
+
+    private static final String CSP_SWAGGER_UI =
+            &quot;default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; &quot;
+                    + &quot;base-uri 'self'; form-action 'self'; frame-ancestors 'none'&quot;;
+
+    @Bean
+    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+<span class="fc" id="L40">        http</span>
+<span class="fc" id="L41">            .cors(Customizer.withDefaults())</span>
+<span class="fc" id="L42">            .csrf(AbstractHttpConfigurer::disable)</span>
+            // La API no sirve HTML, asi que su politica puede ser 'none' a todo.
+            // Swagger UI si necesita estilos inline para renderizar, y es la unica
+            // ruta que recibe la version relajada. setHeader (no add) evita mandar
+            // dos CSP, que el navegador combinaria por interseccion.
+<span class="fc" id="L47">            .headers(headers -&gt; headers.addHeaderWriter((request, response) -&gt;</span>
+<span class="fc" id="L48">                response.setHeader(&quot;Content-Security-Policy&quot;,</span>
+<span class="pc bpc" id="L49" title="1 of 2 branches missed.">                    request.getRequestURI().startsWith(&quot;/swagger-ui&quot;) ? CSP_SWAGGER_UI : CSP_API)))</span>
+<span class="fc" id="L50">            .authorizeHttpRequests(auth -&gt; auth</span>
+<span class="fc" id="L51">                .requestMatchers(&quot;/actuator/health&quot;, &quot;/actuator/health/**&quot;).permitAll()</span>
+<span class="fc" id="L52">                .requestMatchers(&quot;/actuator/prometheus&quot;).permitAll()</span>
+<span class="fc" id="L53">                .requestMatchers(&quot;/error&quot;).permitAll()</span>
+<span class="fc" id="L54">                .requestMatchers(&quot;/v3/api-docs/**&quot;, &quot;/swagger-ui/**&quot;, &quot;/swagger-ui.html&quot;).permitAll()</span>
+                // El navegador no puede mandar el header Authorization al abrir un WebSocket:
+                // la autenticacion real ocurre en el handshake (ver BearerSubprotocolHandshakeInterceptor).
+<span class="fc" id="L57">                .requestMatchers(&quot;/ws/**&quot;).permitAll()</span>
+                // Red de seguridad por modulo: quien no tiene nada que hacer en un modulo
+                // no entra ni al primer metodo. La decision fina (ver vs gestionar) vive
+                // en los @PreAuthorize de cada operacion del controller correspondiente.
+<span class="fc" id="L61">                .requestMatchers(&quot;/api/auth/me&quot;).authenticated()</span>
+<span class="fc" id="L62">                .requestMatchers(&quot;/api/admin/**&quot;).hasAuthority(&quot;user:manage&quot;)</span>
+<span class="fc" id="L63">                .requestMatchers(&quot;/api/products/**&quot;).hasAnyAuthority(&quot;product:view&quot;, &quot;product:manage&quot;)</span>
+<span class="fc" id="L64">                .requestMatchers(&quot;/api/stock-movements/**&quot;).hasAnyAuthority(&quot;stock:view&quot;, &quot;stock:manage&quot;)</span>
+<span class="fc" id="L65">                .requestMatchers(&quot;/api/notifications/**&quot;).hasAuthority(&quot;product:view&quot;)</span>
+<span class="fc" id="L66">                .requestMatchers(&quot;/api/reports/**&quot;).hasAuthority(&quot;report:view&quot;)</span>
+<span class="fc" id="L67">                .requestMatchers(&quot;/api/audit/**&quot;).hasAuthority(&quot;audit:view&quot;)</span>
+<span class="fc" id="L68">                .anyRequest().authenticated())</span>
+<span class="fc" id="L69">            .oauth2ResourceServer(oauth2 -&gt; oauth2</span>
+<span class="fc" id="L70">                .jwt(jwt -&gt; jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));</span>
+<span class="fc" id="L71">        return http.build();</span>
+    }
+
+    // issuer-uri por si solo valida iss y exp, no audiencia: sin esto cualquier
+    // token emitido por el realm, para cualquier cliente, entra a esta API.
+    @Bean
+    JwtDecoder jwtDecoder(
+            @Value(&quot;${spring.security.oauth2.resourceserver.jwt.issuer-uri}&quot;) String issuerUri,
+            @Value(&quot;${spring.security.oauth2.resourceserver.jwt.jwk-set-uri}&quot;) String jwkSetUri,
+            @Value(&quot;${app.jwt.expected-audience}&quot;) String audienciaEsperada) {
+<span class="fc" id="L81">        NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();</span>
+<span class="fc" id="L82">        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator&lt;&gt;(</span>
+<span class="fc" id="L83">                JwtValidators.createDefaultWithIssuer(issuerUri),</span>
+                new JwtClaimValidator&lt;List&lt;String&gt;&gt;(JwtClaimNames.AUD,
+<span class="pc bpc" id="L85" title="2 of 4 branches missed.">                        audiencias -&gt; audiencias != null &amp;&amp; audiencias.contains(audienciaEsperada))));</span>
+<span class="fc" id="L86">        return decoder;</span>
+    }
+
+    @Bean
+    JwtAuthenticationConverter jwtAuthenticationConverter() {
+<span class="fc" id="L91">        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();</span>
+<span class="fc" id="L92">        converter.setPrincipalClaimName(&quot;preferred_username&quot;);</span>
+<span class="fc" id="L93">        converter.setJwtGrantedAuthoritiesConverter(jwt -&gt; {</span>
+<span class="fc" id="L94">            Map&lt;String, Object&gt; realmAccess = jwt.getClaimAsMap(&quot;realm_access&quot;);</span>
+<span class="fc bfc" id="L95" title="All 2 branches covered.">            if (realmAccess == null) return List.of();</span>
+            @SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L97">            List&lt;String&gt; roles = (List&lt;String&gt;) realmAccess.get(&quot;roles&quot;);</span>
+<span class="fc bfc" id="L98" title="All 2 branches covered.">            if (roles == null) return List.of();</span>
+            // Keycloak expande los roles composite al emitir el token, asi que aqui llegan
+            // tanto los roles de negocio (INVENTORY_ADMIN) como los permisos que agrupan
+            // (product:manage, stock:view, ...), y cada uno se convierte en una authority
+            // con su nombre tal cual.
+            //
+            // 
+<span class="fc" id="L105">            return roles.stream()</span>
+<span class="fc" id="L106">                    .map(role -&gt; (GrantedAuthority) new SimpleGrantedAuthority(role))</span>
+<span class="fc" id="L107">                    .toList();</span>
+        });
+<span class="fc" id="L109">        return converter;</span>
+    }
+
+    @Bean
+    CorsConfigurationSource corsConfigurationSource(
+            @Value(&quot;${app.cors.allowed-origins}&quot;) List&lt;String&gt; allowedOrigins) {
+<span class="fc" id="L115">        CorsConfiguration config = new CorsConfiguration();</span>
+<span class="fc" id="L116">        config.setAllowedOrigins(allowedOrigins);</span>
+<span class="fc" id="L117">        config.setAllowedMethods(List.of(&quot;GET&quot;, &quot;POST&quot;, &quot;PUT&quot;, &quot;PATCH&quot;, &quot;DELETE&quot;, &quot;OPTIONS&quot;));</span>
+<span class="fc" id="L118">        config.setAllowedHeaders(List.of(&quot;*&quot;));</span>
+<span class="fc" id="L119">        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();</span>
+<span class="fc" id="L120">        source.registerCorsConfiguration(&quot;/**&quot;, config);</span>
+<span class="fc" id="L121">        return source;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

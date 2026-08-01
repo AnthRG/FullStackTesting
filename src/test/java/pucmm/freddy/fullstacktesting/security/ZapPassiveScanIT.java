@@ -201,8 +201,8 @@ class ZapPassiveScanIT extends AbstractSecurityTest {
     // Se consultan las dos vistas: si el filtro por baseurl no matchea (puerto
     // aleatorio, barra final) preferimos evaluar de mas y no perder una alerta.
     private List<Alerta> alertasDe(ClientApi api, String objetivo) throws Exception {
-        List<Alerta> delObjetivo = mapear(api.core.alerts(objetivo, "0", "0", ""));
-        List<Alerta> todas = mapear(api.core.alerts("", "0", "0", ""));
+        List<Alerta> delObjetivo = mapear(api.alert.alerts(objetivo, "0", "0", ""));
+        List<Alerta> todas = mapear(api.alert.alerts("", "0", "0", ""));
         System.out.println("ZAP alertas: " + delObjetivo.size() + " filtradas por objetivo, "
                 + todas.size() + " en total");
         return delObjetivo.size() >= todas.size() ? delObjetivo : todas;

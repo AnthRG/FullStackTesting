@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StockMovementController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">fullstacktesting</a> &gt; <a href="index.source.html" class="el_package">pucmm.freddy.fullstacktesting.web</a> &gt; <span class="el_source">StockMovementController.java</span></div><h1>StockMovementController.java</h1><pre class="source lang-java linenums">package pucmm.freddy.fullstacktesting.web;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+import pucmm.freddy.fullstacktesting.domain.MovementType;
+import pucmm.freddy.fullstacktesting.dto.StockMovementRequest;
+import pucmm.freddy.fullstacktesting.dto.StockMovementResponse;
+import pucmm.freddy.fullstacktesting.service.StockMovementService;
+
+
+@RestController
+@RequestMapping(&quot;/api/stock-movements&quot;)
+@RequiredArgsConstructor
+@Tag(name = &quot;Movimientos de stock&quot;, description = &quot;Registro y consulta de movimientos de inventario&quot;)
+
+public class StockMovementController {
+
+    private final StockMovementService service;
+
+    @GetMapping
+    @PreAuthorize(&quot;hasAuthority('stock:view')&quot;)
+    public Page&lt;StockMovementResponse&gt; list(
+            @RequestParam(required = false) Long productId,
+            @RequestParam(required = false) MovementType movementType,
+            @PageableDefault(size = 10, sort = &quot;createdAt&quot;, direction = Sort.Direction.DESC) Pageable pageable) {
+<span class="fc" id="L36">        return service.list(productId, movementType, pageable);</span>
+    }
+
+    @GetMapping(&quot;/{id}&quot;)
+    @PreAuthorize(&quot;hasAuthority('stock:view')&quot;)
+    public StockMovementResponse getById(@PathVariable Long id) {
+<span class="nc" id="L42">        return service.findById(id);</span>
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize(&quot;hasAuthority('stock:manage')&quot;)
+    @Operation(summary = &quot;Registra un movimiento de stock&quot;,
+            description = &quot;IN suma al stock, OUT resta (falla con 409 si no hay suficiente) y &quot;
+                    + &quot;ADJUSTMENT fija la cantidad exacta. Actualiza el producto y guarda el historial.&quot;)
+    public StockMovementResponse register(@Valid @RequestBody StockMovementRequest req) {
+<span class="fc" id="L52">        return service.register(req);</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>
