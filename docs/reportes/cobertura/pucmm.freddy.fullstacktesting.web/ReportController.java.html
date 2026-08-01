@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ReportController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">fullstacktesting</a> &gt; <a href="index.source.html" class="el_package">pucmm.freddy.fullstacktesting.web</a> &gt; <span class="el_source">ReportController.java</span></div><h1>ReportController.java</h1><pre class="source lang-java linenums">package pucmm.freddy.fullstacktesting.web;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+import pucmm.freddy.fullstacktesting.dto.InventorySummaryResponse;
+import pucmm.freddy.fullstacktesting.dto.LowStockProductResponse;
+import pucmm.freddy.fullstacktesting.dto.MovementsByTypeResponse;
+import pucmm.freddy.fullstacktesting.dto.TopProductResponse;
+import pucmm.freddy.fullstacktesting.service.ReportService;
+
+import java.time.LocalDate;
+import java.util.List;
+
+
+@RestController
+@RequestMapping(&quot;/api/reports&quot;)
+@RequiredArgsConstructor
+@PreAuthorize(&quot;hasAuthority('report:view')&quot;)
+@Tag(name = &quot;Reportes&quot;, description = &quot;Reportes y métricas de solo lectura derivadas del inventario&quot;)
+
+public class ReportController {
+
+    private final ReportService service;
+
+    @GetMapping(&quot;/summary&quot;)
+    @Operation(summary = &quot;Resumen del inventario&quot;,
+            description = &quot;Totales de productos (por estado), unidades, valor del inventario, &quot;
+                    + &quot;productos críticos (stock &lt;= mínimo) y cantidad de movimientos.&quot;)
+    public InventorySummaryResponse summary() {
+<span class="fc" id="L35">        return service.summary();</span>
+    }
+
+    @GetMapping(&quot;/top-products&quot;)
+    @Operation(summary = &quot;Productos más movidos por salida&quot;,
+            description = &quot;Productos ordenados por unidades de salida (movimientos OUT) de mayor a menor. &quot;
+                    + &quot;limit se acota al rango [1, 50] (por defecto 5).&quot;)
+    public List&lt;TopProductResponse&gt; topProducts(@RequestParam(defaultValue = &quot;5&quot;) int limit) {
+<span class="nc" id="L43">        return service.topProducts(limit);</span>
+    }
+
+    @GetMapping(&quot;/low-stock&quot;)
+    @Operation(summary = &quot;Productos con stock bajo&quot;,
+            description = &quot;Productos cuya cantidad es menor o igual a su stock mínimo, &quot;
+                    + &quot;ordenados por cantidad ascendente.&quot;)
+    public List&lt;LowStockProductResponse&gt; lowStock() {
+<span class="nc" id="L51">        return service.lowStock();</span>
+    }
+
+    @GetMapping(&quot;/movements-by-type&quot;)
+    @Operation(summary = &quot;Movimientos agrupados por tipo&quot;,
+            description = &quot;Cantidad de movimientos y unidades por tipo. from/to son opcionales &quot;
+                    + &quot;(fecha ISO yyyy-MM-dd) y filtran sobre createdAt; from &gt; to responde 400.&quot;)
+    public List&lt;MovementsByTypeResponse&gt; movementsByType(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+<span class="nc" id="L61">        return service.movementsByType(from, to);</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>NotificationController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">fullstacktesting</a> &gt; <a href="index.source.html" class="el_package">pucmm.freddy.fullstacktesting.web</a> &gt; <span class="el_source">NotificationController.java</span></div><h1>NotificationController.java</h1><pre class="source lang-java linenums">package pucmm.freddy.fullstacktesting.web;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+import pucmm.freddy.fullstacktesting.dto.NotificationListResponse;
+import pucmm.freddy.fullstacktesting.service.NotificationService;
+
+
+@RestController
+@RequestMapping(&quot;/api/notifications&quot;)
+@RequiredArgsConstructor
+@Tag(name = &quot;Notificaciones&quot;, description = &quot;Alertas de stock mínimo del inventario&quot;)
+
+public class NotificationController {
+
+    private final NotificationService service;
+
+    @GetMapping
+    @PreAuthorize(&quot;hasAuthority('product:view')&quot;)
+    @Operation(summary = &quot;Lista las alertas de stock&quot;,
+            description = &quot;Últimas 50 alertas ordenadas por fecha descendente más el contador &quot;
+                    + &quot;global de no leídas. onlyUnread=true devuelve solo las pendientes. &quot;
+                    + &quot;Las alertas son globales del inventario, no por usuario.&quot;)
+    public NotificationListResponse list(@RequestParam(defaultValue = &quot;false&quot;) boolean onlyUnread) {
+<span class="fc" id="L30">        return service.list(onlyUnread);</span>
+    }
+
+    @PostMapping(&quot;/{id}/read&quot;)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize(&quot;hasAuthority('product:view')&quot;)
+    @Operation(summary = &quot;Marca una alerta como leída&quot;, description = &quot;404 si la alerta no existe.&quot;)
+    public void markRead(@PathVariable Long id) {
+<span class="fc" id="L38">        service.markRead(id);</span>
+<span class="fc" id="L39">    }</span>
+
+    @PostMapping(&quot;/read-all&quot;)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize(&quot;hasAuthority('product:view')&quot;)
+    @Operation(summary = &quot;Marca todas las alertas como leídas&quot;)
+    public void markAllRead() {
+<span class="fc" id="L46">        service.markAllRead();</span>
+<span class="fc" id="L47">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>KeycloakAdminProperties.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">fullstacktesting</a> &gt; <a href="index.source.html" class="el_package">pucmm.freddy.fullstacktesting.config</a> &gt; <span class="el_source">KeycloakAdminProperties.java</span></div><h1>KeycloakAdminProperties.java</h1><pre class="source lang-java linenums">package pucmm.freddy.fullstacktesting.config;
+
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
+/**
+ * Datos de conexion del backend a la Admin REST API de Keycloak.
+ *
+ * &lt;p&gt;Por ahora el backend se autentica con el grant {@code password} contra el
+ * realm de administracion (por defecto {@code master}) usando el cliente
+ * integrado {@code admin-cli}. Es lo mas simple para desarrollo. En produccion
+ * conviene cambiarlo por una &lt;b&gt;cuenta de servicio&lt;/b&gt; (client_credentials) con
+ * permisos minimos del cliente {@code realm-management}: {@code view-users} y
+ * {@code manage-users}.&lt;/p&gt;
+ *
+ * &lt;p&gt;Prefijo de propiedades: {@code keycloak.admin}.&lt;/p&gt;
+ *
+ * @param serverUrl   URL base de Keycloak, sin {@code /realms} (ej. {@code http://keycloak:8080})
+ * @param authRealm   realm contra el que se autentica el backend (ej. {@code master})
+ * @param targetRealm realm que se administra (ej. {@code fullstacktesting})
+ * @param clientId    cliente usado para obtener el token (ej. {@code admin-cli})
+ * @param username    usuario administrador
+ * @param password    contrasena del administrador
+ */
+@ConfigurationProperties(prefix = &quot;keycloak.admin&quot;)
+<span class="fc" id="L25">public record KeycloakAdminProperties(</span>
+        String serverUrl,
+        String authRealm,
+        String targetRealm,
+        String clientId,
+        String username,
+        String password) {
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AuditService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">fullstacktesting</a> &gt; <a href="index.source.html" class="el_package">pucmm.freddy.fullstacktesting.service</a> &gt; <span class="el_source">AuditService.java</span></div><h1>AuditService.java</h1><pre class="source lang-java linenums">package pucmm.freddy.fullstacktesting.service;
+
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import org.hibernate.envers.AuditReader;
+import org.hibernate.envers.AuditReaderFactory;
+import org.hibernate.envers.RevisionType;
+import org.hibernate.envers.query.AuditEntity;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import pucmm.freddy.fullstacktesting.audit.AuditRevision;
+import pucmm.freddy.fullstacktesting.domain.Product;
+import pucmm.freddy.fullstacktesting.dto.ProductAuditFeedItem;
+import pucmm.freddy.fullstacktesting.dto.ProductRevisionResponse;
+import pucmm.freddy.fullstacktesting.dto.ProductSnapshot;
+import pucmm.freddy.fullstacktesting.exception.ProductNotFoundException;
+
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.List;
+
+@Service
+<span class="fc" id="L27">public class AuditService {</span>
+
+    private static final int MIN_SIZE = 1;
+    private static final int MAX_SIZE = 50;
+
+    @PersistenceContext
+    private EntityManager entityManager;
+
+    @Transactional(readOnly = true)
+    public List&lt;ProductRevisionResponse&gt; productRevisions(Long id) {
+<span class="fc" id="L37">        AuditReader reader = AuditReaderFactory.get(entityManager);</span>
+
+        @SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L40">        List&lt;Object[]&gt; rows = reader.createQuery()</span>
+<span class="fc" id="L41">                .forRevisionsOfEntity(Product.class, false, true)</span>
+<span class="fc" id="L42">                .add(AuditEntity.id().eq(id))</span>
+<span class="fc" id="L43">                .addOrder(AuditEntity.revisionNumber().asc())</span>
+<span class="fc" id="L44">                .getResultList();</span>
+
+<span class="fc bfc" id="L46" title="All 2 branches covered.">        if (rows.isEmpty()) {</span>
+<span class="fc" id="L47">            throw new ProductNotFoundException(id);</span>
+        }
+
+<span class="fc" id="L50">        return rows.stream().map(this::toRevisionResponse).toList();</span>
+    }
+
+    @Transactional(readOnly = true)
+    public Page&lt;ProductAuditFeedItem&gt; productFeed(int page, int size) {
+<span class="fc" id="L55">        int safeSize = Math.min(MAX_SIZE, Math.max(MIN_SIZE, size));</span>
+<span class="fc" id="L56">        int safePage = Math.max(0, page);</span>
+<span class="fc" id="L57">        long offset = Math.min((long) safePage * safeSize, Integer.MAX_VALUE);</span>
+<span class="fc" id="L58">        AuditReader reader = AuditReaderFactory.get(entityManager);</span>
+
+<span class="fc" id="L60">        Number total = (Number) reader.createQuery()</span>
+<span class="fc" id="L61">                .forRevisionsOfEntity(Product.class, false, true)</span>
+<span class="fc" id="L62">                .addProjection(AuditEntity.revisionNumber().count())</span>
+<span class="fc" id="L63">                .getSingleResult();</span>
+
+        @SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L66">        List&lt;Object[]&gt; rows = reader.createQuery()</span>
+<span class="fc" id="L67">                .forRevisionsOfEntity(Product.class, false, true)</span>
+<span class="fc" id="L68">                .addOrder(AuditEntity.revisionNumber().desc())</span>
+<span class="fc" id="L69">                .setFirstResult((int) offset)</span>
+<span class="fc" id="L70">                .setMaxResults(safeSize)</span>
+<span class="fc" id="L71">                .getResultList();</span>
+
+<span class="fc" id="L73">        List&lt;ProductAuditFeedItem&gt; content = rows.stream().map(this::toFeedItem).toList();</span>
+<span class="fc" id="L74">        return new PageImpl&lt;&gt;(content, PageRequest.of(safePage, safeSize), total.longValue());</span>
+    }
+
+    private ProductRevisionResponse toRevisionResponse(Object[] row) {
+<span class="fc" id="L78">        Product entity = (Product) row[0];</span>
+<span class="fc" id="L79">        AuditRevision revision = (AuditRevision) row[1];</span>
+<span class="fc" id="L80">        RevisionType type = (RevisionType) row[2];</span>
+<span class="fc" id="L81">        return new ProductRevisionResponse(</span>
+<span class="fc" id="L82">                revision.getId(),</span>
+<span class="fc" id="L83">                toDateTime(revision.getTimestamp()),</span>
+<span class="fc" id="L84">                revision.getUsername(),</span>
+<span class="fc" id="L85">                revisionTypeName(type),</span>
+<span class="pc bpc" id="L86" title="1 of 2 branches missed.">                entity != null ? ProductSnapshot.from(entity) : null);</span>
+    }
+
+    private ProductAuditFeedItem toFeedItem(Object[] row) {
+<span class="fc" id="L90">        Product entity = (Product) row[0];</span>
+<span class="fc" id="L91">        AuditRevision revision = (AuditRevision) row[1];</span>
+<span class="fc" id="L92">        RevisionType type = (RevisionType) row[2];</span>
+<span class="fc" id="L93">        return new ProductAuditFeedItem(</span>
+<span class="fc" id="L94">                revision.getId(),</span>
+<span class="fc" id="L95">                toDateTime(revision.getTimestamp()),</span>
+<span class="fc" id="L96">                revision.getUsername(),</span>
+<span class="fc" id="L97">                revisionTypeName(type),</span>
+<span class="pc bpc" id="L98" title="1 of 2 branches missed.">                entity != null ? entity.getId() : null,</span>
+<span class="pc bpc" id="L99" title="1 of 2 branches missed.">                entity != null ? entity.getName() : null,</span>
+<span class="pc bpc" id="L100" title="1 of 2 branches missed.">                entity != null ? entity.getSku() : null);</span>
+    }
+
+    private String revisionTypeName(RevisionType type) {
+<span class="fc bfc" id="L104" title="All 3 branches covered.">        return switch (type) {</span>
+<span class="fc" id="L105">            case ADD -&gt; &quot;CREATE&quot;;</span>
+<span class="fc" id="L106">            case MOD -&gt; &quot;UPDATE&quot;;</span>
+<span class="fc" id="L107">            case DEL -&gt; &quot;DELETE&quot;;</span>
+        };
+    }
+
+    private LocalDateTime toDateTime(long epochMilli) {
+<span class="fc" id="L112">        return LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMilli), ZoneId.systemDefault());</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

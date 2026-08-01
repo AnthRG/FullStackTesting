@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StockMovementService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">fullstacktesting</a> &gt; <a href="index.source.html" class="el_package">pucmm.freddy.fullstacktesting.service</a> &gt; <span class="el_source">StockMovementService.java</span></div><h1>StockMovementService.java</h1><pre class="source lang-java linenums">package pucmm.freddy.fullstacktesting.service;
+
+
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import pucmm.freddy.fullstacktesting.domain.MovementType;
+import pucmm.freddy.fullstacktesting.domain.Product;
+import pucmm.freddy.fullstacktesting.domain.ProductRepository;
+import pucmm.freddy.fullstacktesting.domain.StockMovement;
+import pucmm.freddy.fullstacktesting.domain.StockMovementRepository;
+import pucmm.freddy.fullstacktesting.dto.StockMovementRequest;
+import pucmm.freddy.fullstacktesting.dto.StockMovementResponse;
+import pucmm.freddy.fullstacktesting.exception.InsufficientStockException;
+import pucmm.freddy.fullstacktesting.exception.ProductNotFoundException;
+import pucmm.freddy.fullstacktesting.exception.StockMovementNotFoundException;
+
+@Service
+@RequiredArgsConstructor
+
+public class StockMovementService {
+
+    private final StockMovementRepository repository;
+    private final ProductRepository productRepository;
+    private final NotificationService notificationService;
+
+
+    @Transactional(readOnly = true)
+    public Page&lt;StockMovementResponse&gt; list(Long productId, MovementType movementType, Pageable pageable) {
+<span class="fc" id="L36">        Specification&lt;StockMovement&gt; spec = Specification.unrestricted();</span>
+
+<span class="fc bfc" id="L38" title="All 2 branches covered.">        if (productId != null) {</span>
+<span class="pc" id="L39">            spec = spec.and((root, q, cb) -&gt; cb.equal(root.get(&quot;product&quot;).get(&quot;id&quot;), productId));</span>
+        }
+<span class="fc bfc" id="L41" title="All 2 branches covered.">        if (movementType != null) {</span>
+<span class="pc" id="L42">            spec = spec.and((root, q, cb) -&gt; cb.equal(root.get(&quot;movementType&quot;), movementType));</span>
+        }
+
+<span class="fc" id="L45">        return repository.findAll(spec, pageable).map(StockMovementResponse::from);</span>
+    }
+
+    @Transactional(readOnly = true)
+    public StockMovementResponse findById(Long id) {
+<span class="fc" id="L50">        return StockMovementResponse.from(</span>
+<span class="fc" id="L51">                repository.findById(id).orElseThrow(() -&gt; new StockMovementNotFoundException(id)));</span>
+    }
+
+    @Transactional
+    public StockMovementResponse register(StockMovementRequest req) {
+<span class="fc" id="L56">        Product product = productRepository.findByIdForUpdate(req.productId())</span>
+<span class="fc" id="L57">                .orElseThrow(() -&gt; new ProductNotFoundException(req.productId()));</span>
+
+<span class="fc" id="L59">        int previous = product.getQuantity();</span>
+<span class="fc bfc" id="L60" title="All 3 branches covered.">        int updated = switch (req.movementType()) {</span>
+<span class="fc" id="L61">            case IN -&gt; previous + req.quantity();</span>
+<span class="fc" id="L62">            case OUT -&gt; previous - req.quantity();</span>
+<span class="fc" id="L63">            case ADJUSTMENT -&gt; req.quantity();</span>
+        };
+<span class="fc bfc" id="L65" title="All 2 branches covered.">        if (updated &lt; 0) {</span>
+<span class="fc" id="L66">            throw new InsufficientStockException(product.getId(), previous, req.quantity());</span>
+        }
+<span class="fc" id="L68">        product.setQuantity(updated);</span>
+
+<span class="fc" id="L70">        StockMovement movement = new StockMovement();</span>
+<span class="fc" id="L71">        movement.setProduct(product);</span>
+<span class="fc" id="L72">        movement.setMovementType(req.movementType());</span>
+<span class="fc" id="L73">        movement.setQuantity(req.quantity());</span>
+<span class="fc" id="L74">        movement.setPreviousQuantity(previous);</span>
+<span class="fc" id="L75">        movement.setNewQuantity(updated);</span>
+<span class="fc" id="L76">        movement.setUserId(currentUser());</span>
+<span class="fc" id="L77">        movement.setObservations(req.observations());</span>
+<span class="fc" id="L78">        StockMovement saved = repository.save(movement);</span>
+
+        // El movimiento no toca el minimo, asi que el minimo previo es el actual.
+<span class="fc" id="L81">        notificationService.evaluateStock(product, previous, product.getMinimumStock());</span>
+
+<span class="fc" id="L83">        return StockMovementResponse.from(saved);</span>
+    }
+
+    private String currentUser() {
+<span class="fc" id="L87">        Authentication auth = SecurityContextHolder.getContext().getAuthentication();</span>
+<span class="fc bfc" id="L88" title="All 2 branches covered.">        String name = (auth != null) ? auth.getName() : null;</span>
+<span class="fc bfc" id="L89" title="All 2 branches covered.">        return name != null ? name : &quot;system&quot;;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

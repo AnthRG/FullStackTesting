@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ProductService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">fullstacktesting</a> &gt; <a href="index.source.html" class="el_package">pucmm.freddy.fullstacktesting.service</a> &gt; <span class="el_source">ProductService.java</span></div><h1>ProductService.java</h1><pre class="source lang-java linenums">package pucmm.freddy.fullstacktesting.service;
+
+
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import pucmm.freddy.fullstacktesting.domain.Product;
+import pucmm.freddy.fullstacktesting.domain.ProductRepository;
+import pucmm.freddy.fullstacktesting.domain.ProductStatus;
+import pucmm.freddy.fullstacktesting.dto.ProductRequest;
+import pucmm.freddy.fullstacktesting.dto.ProductResponse;
+import pucmm.freddy.fullstacktesting.exception.DuplicateSkuException;
+import pucmm.freddy.fullstacktesting.exception.ProductNotFoundException;
+
+@Service
+@RequiredArgsConstructor
+
+public class ProductService {
+
+    private final ProductRepository repository;
+    private final NotificationService notificationService;
+
+
+    public Page&lt;ProductResponse&gt; list(String search, ProductStatus status, Pageable pageable) {
+<span class="fc" id="L30">        Specification&lt;Product&gt; spec = Specification.unrestricted();</span>
+
+<span class="pc bpc" id="L32" title="1 of 4 branches missed.">        if (search != null &amp;&amp; !search.isBlank()) {</span>
+<span class="fc" id="L33">            spec = spec.and((root, q, cb) -&gt; cb.or(</span>
+<span class="fc" id="L34">                    cb.like(cb.lower(root.get(&quot;name&quot;)), &quot;%&quot; + search.toLowerCase() + &quot;%&quot;),</span>
+<span class="fc" id="L35">                    cb.like(cb.lower(root.get(&quot;sku&quot;)), &quot;%&quot; + search.toLowerCase() + &quot;%&quot;)</span>
+            ));
+        }
+<span class="fc bfc" id="L38" title="All 2 branches covered.">        if (status != null) {</span>
+<span class="fc" id="L39">            spec = spec.and((root, q, cb) -&gt; cb.equal(root.get(&quot;status&quot;), status));</span>
+        }
+
+<span class="fc" id="L42">        return repository.findAll(spec, pageable).map(ProductResponse::from);</span>
+    }
+
+    public ProductResponse findById(Long id) {
+<span class="fc" id="L46">        return ProductResponse.from(getOrThrow(id));</span>
+    }
+
+    @Transactional
+    public ProductResponse create(ProductRequest req) {
+<span class="fc" id="L51">        String sku = req.sku().trim().toUpperCase();</span>
+<span class="fc bfc" id="L52" title="All 2 branches covered.">        if (repository.existsBySku(sku)) throw new DuplicateSkuException(sku);</span>
+        Product saved;
+        try {
+<span class="fc" id="L55">            saved = repository.save(toEntity(req));</span>
+<span class="nc" id="L56">        } catch (DataIntegrityViolationException ex) {</span>
+<span class="nc" id="L57">            throw new DuplicateSkuException(sku);</span>
+<span class="fc" id="L58">        }</span>
+        // Sin estado previo: un producto que nace bajo minimo tambien alerta.
+<span class="fc" id="L60">        notificationService.evaluateStock(saved, null, null);</span>
+<span class="fc" id="L61">        return ProductResponse.from(saved);</span>
+    }
+
+    @Transactional
+    public ProductResponse update(Long id, ProductRequest req) {
+<span class="fc" id="L66">        String sku = req.sku().trim().toUpperCase();</span>
+<span class="fc bfc" id="L67" title="All 2 branches covered.">        if (repository.existsBySkuAndIdNot(sku, id)) throw new DuplicateSkuException(sku);</span>
+        // Bloquea la fila como hace el registro de movimientos: dos updates concurrentes
+        // leerian la misma cantidad previa y emitirian la alerta de umbral por duplicado.
+<span class="fc" id="L70">        Product product = repository.findByIdForUpdate(id).orElseThrow(() -&gt; new ProductNotFoundException(id));</span>
+<span class="fc" id="L71">        Integer previousQuantity = product.getQuantity();</span>
+<span class="fc" id="L72">        Integer previousMinimum = product.getMinimumStock();</span>
+<span class="fc" id="L73">        product.setName(req.name());</span>
+<span class="fc" id="L74">        product.setSku(sku);</span>
+<span class="fc" id="L75">        product.setDescription(req.description());</span>
+<span class="fc" id="L76">        product.setCategory(req.category());</span>
+<span class="fc" id="L77">        product.setPrice(req.price());</span>
+<span class="fc" id="L78">        product.setQuantity(req.quantity());</span>
+<span class="fc" id="L79">        product.setMinimumStock(req.minimumStock());</span>
+<span class="fc" id="L80">        product.setStatus(req.status());</span>
+        Product saved;
+        try {
+<span class="fc" id="L83">            saved = repository.save(product);</span>
+<span class="nc" id="L84">        } catch (DataIntegrityViolationException ex) {</span>
+<span class="nc" id="L85">            throw new DuplicateSkuException(sku);</span>
+<span class="fc" id="L86">        }</span>
+<span class="fc" id="L87">        notificationService.evaluateStock(saved, previousQuantity, previousMinimum);</span>
+<span class="fc" id="L88">        return ProductResponse.from(saved);</span>
+    }
+
+    @Transactional
+    public void delete(Long id) {
+<span class="fc bfc" id="L93" title="All 2 branches covered.">        if (!repository.existsById(id)) throw new ProductNotFoundException(id);</span>
+<span class="fc" id="L94">        repository.deleteById(id);</span>
+<span class="fc" id="L95">    }</span>
+
+    private Product getOrThrow(Long id) {
+<span class="fc" id="L98">        return repository.findById(id).orElseThrow(() -&gt; new ProductNotFoundException(id));</span>
+    }
+
+    private Product toEntity(ProductRequest req) {
+<span class="fc" id="L102">        Product product = new Product();</span>
+<span class="fc" id="L103">        product.setName(req.name());</span>
+<span class="fc" id="L104">        product.setSku(req.sku().trim().toUpperCase());</span>
+<span class="fc" id="L105">        product.setDescription(req.description());</span>
+<span class="fc" id="L106">        product.setCategory(req.category());</span>
+<span class="fc" id="L107">        product.setPrice(req.price());</span>
+<span class="fc" id="L108">        product.setQuantity(req.quantity());</span>
+<span class="fc" id="L109">        product.setMinimumStock(req.minimumStock());</span>
+<span class="fc" id="L110">        product.setStatus(req.status());</span>
+<span class="fc" id="L111">        return product;</span>
+    }
+    
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

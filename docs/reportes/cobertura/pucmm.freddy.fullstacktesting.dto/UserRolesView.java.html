@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UserRolesView.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">fullstacktesting</a> &gt; <a href="index.source.html" class="el_package">pucmm.freddy.fullstacktesting.dto</a> &gt; <span class="el_source">UserRolesView.java</span></div><h1>UserRolesView.java</h1><pre class="source lang-java linenums">package pucmm.freddy.fullstacktesting.dto;
+
+import java.util.List;
+
+/**
+ * Vista de un usuario con sus roles de realm asignados.
+ *
+ * &lt;p&gt;Es el contrato de salida de la API: al ser un {@code record} con campos
+ * nombrados, OpenAPI/Swagger genera el schema sin trabajo adicional.&lt;/p&gt;
+ *
+ * @param id             identificador del usuario en Keycloak
+ * @param username       nombre de usuario
+ * @param email          correo electronico (puede ser {@code null})
+ * @param enabled        si la cuenta esta habilitada
+ * @param realmRoles     roles asignados directamente, los unicos que se pueden quitar
+ * @param effectiveRoles todo lo que el usuario tiene de verdad, incluido lo que hereda de
+ *                       un rol compuesto. Es lo que viaja en su token, y por tanto lo que
+ *                       decide que puede hacer. Sin este campo la UI muestra un permiso
+ *                       como quitado cuando el compuesto se lo sigue otorgando.
+ */
+<span class="fc" id="L21">public record UserRolesView(</span>
+        String id,
+        String username,
+        String email,
+        boolean enabled,
+        List&lt;String&gt; realmRoles,
+        List&lt;String&gt; effectiveRoles) {
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>
